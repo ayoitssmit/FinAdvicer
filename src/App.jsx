@@ -1,5 +1,5 @@
-import React from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar/Navbar';
 import Footer from './components/Footer/Footer';
 import HomePage from './pages/HomePage';
@@ -8,6 +8,12 @@ import SignupPage from './pages/SignupPage';
 import DashboardPage from './pages/DashboardPage';
 import ProjectionPage from './pages/ProjectionView';
 import './index.css';
+
+// Protected Route Component
+const PrivateRoute = ({ children }) => {
+    const token = localStorage.getItem('token');
+    return token ? children : <Navigate to="/login" />;
+};
 
 function App() {
     const location = useLocation();
@@ -23,8 +29,24 @@ function App() {
                     <Route path="/" element={<HomePage />} />
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/signup" element={<SignupPage />} />
-                    <Route path="/dashboard" element={<DashboardPage />} />
-                    <Route path="/projection" element={<ProjectionPage />} />
+
+                    {/* Protected Routes */}
+                    <Route
+                        path="/dashboard"
+                        element={
+                            <PrivateRoute>
+                                <DashboardPage />
+                            </PrivateRoute>
+                        }
+                    />
+                    <Route
+                        path="/projection"
+                        element={
+                            <PrivateRoute>
+                                <ProjectionPage />
+                            </PrivateRoute>
+                        }
+                    />
                 </Routes>
             </main>
             {/* Only show Footer if not in the app view */}

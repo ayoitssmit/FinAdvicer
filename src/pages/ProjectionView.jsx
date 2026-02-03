@@ -67,7 +67,7 @@ const ProjectionPage = () => {
             financialData.stocks.forEach(s => investments += (s.currentPrice * s.quantity) * Math.pow(1.17, period));
             financialData.properties.forEach(p => investments += calculatePropertyValue(p, period));
             financialData.mutualFunds.forEach(m => investments += calculateMutualFundValue(m, period));
-            financialData.fd.forEach(f => investments += f.principal * Math.pow(1 + f.interestRate/100, f.years + period));
+            financialData.fd.forEach(f => investments += f.principal * Math.pow(1 + f.interestRate / 100, f.years + period));
             financialData.gold.forEach(g => investments += g.currentValue * Math.pow(1.17, period));
             financialData.silver.forEach(s => investments += s.currentValue * Math.pow(1.17, period));
             financialData.postRetirement.forEach(p => investments += p.amount * Math.pow(1.17, period));
@@ -101,7 +101,7 @@ const ProjectionPage = () => {
         };
 
         const generateLineData = (period) => {
-            const labels = Array.from({ length: period + 1}, (_, i) => `Year ${i}`);
+            const labels = Array.from({ length: period + 1 }, (_, i) => `Year ${i}`);
             const data = labels.map((_, i) => {
                 const totals = calculateTotals(i);
                 return totals.investments - totals.expenses; // Net Worth
@@ -133,7 +133,7 @@ const ProjectionPage = () => {
     const lineOptions = {
         responsive: true,
         plugins: { legend: { display: false }, title: { display: true, text: 'Projected Net Worth Growth' } },
-        scales: { y: { ticks: { callback: value => `$${(value/1000).toFixed(0)}k` } } }
+        scales: { y: { ticks: { callback: value => `$${(value / 1000).toFixed(0)}k` } } }
     };
     const pieDatasetConfig = {
         backgroundColor: ['#B6955E', '#212529', '#6c757d', '#f8f9fa'],
@@ -143,7 +143,7 @@ const ProjectionPage = () => {
 
 
     return (
-        <div style={{ padding: '2rem 3rem', backgroundColor: '#F8F9FA', minHeight: '100vh'}}>
+        <div style={{ padding: '2rem 3rem', backgroundColor: '#F8F9FA', minHeight: '100vh' }}>
             {/* --- ADDED: Styles for buttons and variables --- */}
             <style>{`
                 :root {
@@ -231,12 +231,12 @@ const ProjectionPage = () => {
                 <button onClick={() => setActivePeriod(10)} className={`category-button ${activePeriod === 10 ? 'active' : ''}`}>After 10 Years</button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: activePeriod > 0 ? '1fr 1fr' : '1fr', gap: '2rem', alignItems: 'flex-start' }}>
-                <div className="item-list-container" style={{padding: '1.5rem'}}>
-                    <h3 style={{marginBottom: '1rem'}}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', alignItems: 'stretch' }}>
+                <div className="item-list-container" style={{ padding: '1.5rem', minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
+                    <h3 style={{ marginBottom: '1rem' }}>
                         {activePeriod === 0 ? 'Current' : `${activePeriod}-Year`} Financial Summary
                     </h3>
-                    <div style={{fontSize: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem'}}>
+                    <div style={{ fontSize: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <p>
                             Total Investment Value:
                             <strong className="text-profit"> ${projection[activePeriod === 5 ? 'fiveYear' : activePeriod === 10 ? 'tenYear' : 'current'].investments.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
@@ -246,18 +246,19 @@ const ProjectionPage = () => {
                             <strong className="text-loss"> ${projection[activePeriod === 5 ? 'fiveYear' : activePeriod === 10 ? 'tenYear' : 'current'].expenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
                         </p>
                     </div>
-                    <div style={{ height: '400px', marginTop: '2rem', maxWidth: '500px', margin: '2rem auto 0' }}>
-                        <Pie data={{...projection.pie, datasets: [{...projection.pie.datasets[0], ...pieDatasetConfig}]}} options={pieOptions} />
+                    {/* Flex grow pushes chart to center/bottom space */}
+                    <div style={{ flex: 1, minHeight: '300px', width: '100%', marginTop: '2rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                        <Pie data={{ ...projection.pie, datasets: [{ ...projection.pie.datasets[0], ...pieDatasetConfig }] }} options={{ ...pieOptions, maintainAspectRatio: false }} />
                     </div>
                 </div>
 
                 {activePeriod > 0 && projection.line && (
-                    <div className="item-list-container" style={{padding: '1.5rem'}}>
-                        <h3 style={{marginBottom: '1rem'}}>
+                    <div className="item-list-container" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
+                        <h3 style={{ marginBottom: '1rem' }}>
                             Investment Growth Over {activePeriod} Years
                         </h3>
-                        <div style={{ height: '500px' }}>
-                            <Line data={{...projection.line, datasets: [{...projection.line.datasets[0], borderColor: '#B6955E', backgroundColor: 'rgba(182, 149, 94, 0.2)'}]}} options={lineOptions} />
+                        <div style={{ flex: 1, minHeight: '350px', position: 'relative' }}>
+                            <Line data={{ ...projection.line, datasets: [{ ...projection.line.datasets[0], borderColor: '#B6955E', backgroundColor: 'rgba(182, 149, 94, 0.2)' }] }} options={{ ...lineOptions, maintainAspectRatio: false }} />
                         </div>
                     </div>
                 )}

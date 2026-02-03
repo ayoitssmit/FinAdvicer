@@ -22,26 +22,46 @@ const SignupPage = () => {
         return re.test(String(email).toLowerCase());
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        setError(''); // Reset error message on each submission
+        setError('');
 
-        // --- Validation Logic ---
-        // 1. Check for valid email
         if (!validateEmail(formData.email)) {
             setError('Please enter a valid email address.');
-            return; // Stop the function
+            return;
         }
 
-        // 2. Check if passwords match
         if (formData.password !== formData.confirmPassword) {
             setError('Passwords do not match.');
-            return; // Stop the function
+            return;
         }
 
-        // If all checks pass, proceed
-        console.log('Signup Form Submitted:', formData);
-        navigate('/dashboard');
+        try {
+            const response = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: formData.name,
+                    email: formData.email,
+                    password: formData.password,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                console.log('Signup Successful:', data);
+                // Optionally save token: localStorage.setItem('token', data.token);
+                navigate('/login'); // Redirect to login after signup
+            } else {
+                setError(data.error || 'Signup failed');
+            }
+        } catch (error) {
+            console.error('Signup Error:', error);
+            setError('An error occurred. Please try again.');
+        }
     };
 
     return (
