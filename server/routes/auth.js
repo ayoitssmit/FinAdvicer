@@ -2,6 +2,9 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import auth from '../middleware/auth.js';
+import axios from 'axios';
+import { OAuth2Client } from 'google-auth-library';
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const router = express.Router();
 
@@ -55,6 +58,47 @@ router.post('/login', async (req, res) => {
         res.json({ user: { id: user._id, name: user.name, email: user.email }, token });
     } catch (error) {
         res.status(500).json({ error: error.message });
+    }
+});
+
+// @route   POST /api/auth/google
+// @desc    Login/Register with Google
+router.post('/google', async (req, res) => {
+    try {
+        const { token } = req.body;
+
+        // Fetch user info using the access token
+        const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const { name, email, sub: googleId } = userInfoResponse.data;
+
+        let user = await User.findOne({ $or: [{ googleId }, { email }] });
+
+        if (user) {
+            // User exists, update googleId if not present
+            if (!user.googleId) {
+                user.googleId = googleId;
+                await user.save();
+            }
+        } else {
+            // Create new user
+            user = new User({
+                name,
+                email,
+                googleId,
+                password: 'google-auth-user'
+            });
+            await user.save();
+        }
+
+        const jwtToken = generateToken(user._id);
+        res.json({ user: { id: user._id, name: user.name, email: user.email }, token: jwtToken });
+
+    } catch (error) {
+        console.error('Google Auth Error:', error);
+        res.status(400).json({ error: 'Google authentication failed' });
     }
 });
 

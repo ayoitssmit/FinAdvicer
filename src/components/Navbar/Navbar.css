@@ -42,13 +42,16 @@
     color: var(--subtle-text-color);
     text-decoration: none;
     font-weight: 700;
-    padding-bottom: 5px; /* Space for the underline */
-    position: relative; /* Required for positioning the pseudo-element */
+    padding-bottom: 5px;
+    /* Space for the underline */
+    position: relative;
+    /* Required for positioning the pseudo-element */
     transition: color 0.3s ease;
 }
 
 .navbar-link:hover {
-    color: var(--primary-color); /* Change text color on hover */
+    color: var(--primary-color);
+    /* Change text color on hover */
 }
 
 /* The animated underline */
@@ -56,13 +59,15 @@
     content: '';
     position: absolute;
     width: 100%;
-    transform: scaleX(0); /* Initially, the underline has no width */
+    transform: scaleX(0);
+    /* Initially, the underline has no width */
     height: 2px;
     bottom: 0;
     left: 0;
     background-color: var(--primary-color);
     transform-origin: bottom right;
-    transition: transform 0.3s ease-out; /* Smooth transition for the animation */
+    transition: transform 0.3s ease-out;
+    /* Smooth transition for the animation */
 }
 
 /* On hover, the underline scales to full width */
@@ -75,4 +80,3 @@
     display: flex;
     gap: 1rem;
 }
-

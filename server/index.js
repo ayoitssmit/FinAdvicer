@@ -4,6 +4,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
 import stockRoutes from './routes/stocks.js';
+import financialRoutes from './routes/financial.js';
+import commodityRoutes from './routes/commodities.js';
 
 dotenv.config();
 
@@ -17,6 +19,8 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/stocks', stockRoutes);
+app.use('/api/financial', financialRoutes);
+app.use('/api/commodities', commodityRoutes);
 
 // Database Connection
 mongoose.connect(process.env.MONGODB_URI)

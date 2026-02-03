@@ -1,0 +1,195 @@
+import express from 'express';
+import verifyToken from '../middleware/auth.js';
+
+// Import all new models
+import Stock from '../models/Stock.js';
+import MutualFund from '../models/MutualFund.js';
+import Property from '../models/Property.js';
+import FixedDeposit from '../models/FixedDeposit.js';
+import Commodity from '../models/Commodity.js';
+import Goal from '../models/Goal.js';
+import Liability from '../models/Liability.js';
+import Expense from '../models/Expense.js';
+
+const router = express.Router();
+
+// Helper to get Model by Type string
+const getModelByType = (type) => {
+    switch (type) {
+        case 'stocks': return Stock;
+        case 'mutualFunds': return MutualFund;
+        case 'properties': return Property;
+        case 'fd': return FixedDeposit;
+        case 'gold':
+        case 'silver': return Commodity;
+        case 'marriage':
+        case 'education':
+        case 'postRetirement': return Goal;
+        case 'loans': return Liability;
+        case 'bills':
+        case 'personalExpense':
+        case 'insurance': return Expense;
+        default: return null;
+    }
+};
+
+// @route   GET /api/financial
+// @desc    Get all financial items (aggregated from all collections)
+// @access  Private
+router.get('/', verifyToken, async (req, res) => {
+    try {
+        const userId = req.userId;
+
+        // Fetch from all collections in parallel
+        const [
+            stocks, mutualFunds, properties, fds,
+            commodities, goals, liabilities, expenses
+        ] = await Promise.all([
+            Stock.find({ user: userId }).lean(),
+            MutualFund.find({ user: userId }).lean(),
+            Property.find({ user: userId }).lean(),
+            FixedDeposit.find({ user: userId }).lean(),
+            Commodity.find({ user: userId }).lean(),
+            Goal.find({ user: userId }).lean(),
+            Liability.find({ user: userId }).lean(),
+            Expense.find({ user: userId }).lean()
+        ]);
+
+        // Helper to formatting (id instead of _id)
+        const format = (items, typeOverride) => items.map(item => {
+            const { _id, ...rest } = item;
+            return { id: _id, type: typeOverride || item.type, ...rest };
+        });
+
+        // Construct the response object matching existing frontend structure
+        const responseData = {
+            stocks: format(stocks, 'stocks'),
+            mutualFunds: format(mutualFunds, 'mutualFunds'),
+            properties: format(properties, 'properties'),
+            fd: format(fds, 'fd'),
+            // Group specific types
+            gold: format(commodities.filter(c => c.type === 'gold'), 'gold'),
+            silver: format(commodities.filter(c => c.type === 'silver'), 'silver'),
+
+            marriage: format(goals.filter(g => g.type === 'marriage'), 'marriage'),
+            education: format(goals.filter(g => g.type === 'education'), 'education'),
+            postRetirement: format(goals.filter(g => g.type === 'postRetirement'), 'postRetirement'),
+
+            loans: format(liabilities, 'loans'),
+
+            bills: format(expenses.filter(e => e.type === 'bills'), 'bills'),
+            personalExpense: format(expenses.filter(e => e.type === 'personalExpense'), 'personalExpense'),
+            insurance: format(expenses.filter(e => e.type === 'insurance'), 'insurance'),
+        };
+
+        res.json(responseData);
+    } catch (error) {
+        console.error('Error fetching financial data:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// @route   POST /api/financial
+// @desc    Add a new financial item
+// @access  Private
+router.post('/', verifyToken, async (req, res) => {
+    try {
+        const { type, ...itemData } = req.body;
+        const Model = getModelByType(type);
+
+        if (!Model) {
+            return res.status(400).json({ error: 'Invalid Item Type' });
+        }
+
+        const newItem = new Model({
+            user: req.userId,
+            type, // Some models use this (Commodity, Goal, Expense), others ignore it
+            ...itemData
+        });
+
+        const savedItem = await newItem.save();
+        const { _id, __v, ...rest } = savedItem.toObject();
+
+        // Return with 'id' and correct structure
+        res.status(201).json({ id: _id, type, ...rest });
+
+    } catch (error) {
+        console.error('Error adding item:', error);
+        res.status(500).json({ error: 'Server error: ' + error.message });
+    }
+});
+
+// @route   PUT /api/financial/:id
+// @desc    Update a financial item
+// @access  Private
+router.put('/:id', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { type, ...updates } = req.body;
+
+        // We need 'type' to know which collection to update
+        if (!type) {
+            return res.status(400).json({ error: 'Type is required for update' });
+        }
+
+        const Model = getModelByType(type);
+        if (!Model) {
+            return res.status(400).json({ error: 'Invalid Item Type' });
+        }
+
+        const updatedItem = await Model.findOneAndUpdate(
+            { _id: id, user: req.userId },
+            { $set: updates },
+            { new: true, runValidators: true }
+        ).lean();
+
+        if (!updatedItem) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
+
+        const { _id, __v, ...rest } = updatedItem;
+        res.json({ id: _id, type, ...rest });
+
+    } catch (error) {
+        console.error('Error updating item:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// @route   DELETE /api/financial/:id
+// @desc    Delete a financial item
+// @access  Private
+router.delete('/:id', verifyToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const type = req.query.type; // Expect type in query param
+
+        let deletedItem = null;
+
+        if (type) {
+            const Model = getModelByType(type);
+            if (Model) {
+                deletedItem = await Model.findOneAndDelete({ _id: id, user: req.userId });
+            }
+        } else {
+            // Fallback: Try deleting from ALL collections (Not efficient but safe if type is missing)
+            const models = [Stock, MutualFund, Property, FixedDeposit, Commodity, Goal, Liability, Expense];
+            for (const Model of models) {
+                deletedItem = await Model.findOneAndDelete({ _id: id, user: req.userId });
+                if (deletedItem) break;
+            }
+        }
+
+        if (!deletedItem) {
+            return res.status(404).json({ error: 'Item not found' });
+        }
+
+        res.json({ message: 'Item deleted successfully', id });
+
+    } catch (error) {
+        console.error('Error deleting item:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+export default router;

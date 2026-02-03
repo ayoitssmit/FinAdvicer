@@ -10,6 +10,7 @@ const auth = async (req, res, next) => {
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decoded;
+        req.userId = decoded.id; // Compatibility for routes using req.userId
         next();
     } catch (error) {
         res.status(401).send({ error: 'Invalid token' });

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import './AuthForm.css';
@@ -7,16 +8,15 @@ const SignupPage = () => {
         name: '',
         email: '',
         password: '',
-        confirmPassword: '', // Added confirm password field
+        confirmPassword: '',
     });
-    const [error, setError] = useState(''); // State to hold error messages
+    const [error, setError] = useState('');
     const navigate = useNavigate();
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    // Helper function to validate email format
     const validateEmail = (email) => {
         const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return re.test(String(email).toLowerCase());
@@ -53,8 +53,10 @@ const SignupPage = () => {
 
             if (response.ok) {
                 console.log('Signup Successful:', data);
-                // Optionally save token: localStorage.setItem('token', data.token);
-                navigate('/login'); // Redirect to login after signup
+                // Directly login user
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(data.user || { name: formData.name, email: formData.email })); // Ensure user data is stored
+                navigate('/dashboard');
             } else {
                 setError(data.error || 'Signup failed');
             }
@@ -69,7 +71,6 @@ const SignupPage = () => {
             <form className="auth-form" onSubmit={handleSubmit}>
                 <h2 className="auth-title">Create Your Account</h2>
 
-                {/* Display error message if it exists */}
                 {error && <p className="error-message">{error}</p>}
 
                 <div className="input-group">
@@ -105,7 +106,6 @@ const SignupPage = () => {
                         required
                     />
                 </div>
-                {/* New Confirm Password Field */}
                 <div className="input-group">
                     <label htmlFor="confirmPassword">Confirm Password</label>
                     <input
@@ -120,6 +120,7 @@ const SignupPage = () => {
                 <button type="submit" className="btn btn-primary auth-button">
                     Sign Up
                 </button>
+
                 <p className="auth-switch">
                     Already have an account? <Link to="/login">Login</Link>
                 </p>

@@ -248,7 +248,27 @@ const DashboardStyles = () => (
 
     .remove-item-button:hover {
       color: var(--loss-red);
-      background-color: rgba(220, 53, 69, 0.1);
+      background-color: rgba(220, 38, 38, 0.1);
+    }
+    
+    .input-group.checkbox-group {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+        justify-content: flex-start;
+    }
+    
+    .input-group.checkbox-group input[type="checkbox"] {
+        width: auto;
+        margin: 0;
+        cursor: pointer;
+    }
+    
+    .input-group.checkbox-group label {
+        margin-bottom: 0;
+        cursor: pointer;
+        font-weight: 500;
     }
 
     .no-items-message {
@@ -313,6 +333,8 @@ const DashboardStyles = () => (
       border: 1px solid var(--border-color);
       width: 90%;
       max-width: 500px;
+      max-height: 85vh;
+      overflow-y: auto;
     }
 
     .modal-title {
@@ -390,6 +412,34 @@ const DashboardStyles = () => (
     .text-loss {
       color: var(--loss-red);
     }
+    
+    /* --- Toggle Tabs --- */
+    .mode-tabs {
+        display: flex;
+        background-color: var(--background-dark);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 4px;
+        margin-bottom: 20px;
+    }
+    
+    .mode-tab {
+        flex: 1;
+        text-align: center;
+        padding: 8px;
+        cursor: pointer;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        transition: all 0.2s ease;
+    }
+    
+    .mode-tab.active {
+        background-color: var(--accent-gold);
+        color: white;
+        font-weight: 600;
+    }
   `}</style>
 );
 
@@ -429,6 +479,7 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
     };
 
     const [formData, setFormData] = useState(initialFormState);
+    const [mfMode, setMfMode] = useState('live'); // 'live' | 'sip'
 
     useEffect(() => {
         let dataToSet = { ...initialFormState };
@@ -437,6 +488,14 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
         }
         if (config.mode === 'add' && config.category === 'properties') {
             dataToSet.growthRate = Math.random() * (10 - 5) + 5;
+        }
+        // Auto-detect mode if editing existing item
+        if (config.mode === 'edit' && config.item && config.category === 'mutualFunds') {
+            if (config.item.symbol) {
+                setMfMode('live');
+            } else if (config.item.invested > 0) {
+                setMfMode('sip');
+            }
         }
         setFormData(dataToSet);
     }, [config]);
@@ -480,15 +539,50 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
             case 'mutualFunds':
                 return <>
                     <div className="input-group"><label>Fund Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} /></div>
-                    <div className="input-group"><label>Recurring Investment Amount ($)</label><input type="number" name="invested" value={formData.invested} onChange={handleChange} /></div>
-                    <div className="input-group"><label>Recurring Every (Months)</label><input type="number" name="recurringMonths" value={formData.recurringMonths} onChange={handleChange} /></div>
-                    <div className="input-group"><label>Start Date</label><input type="date" name="startDate" value={formData.startDate} onChange={handleChange} /></div>
-                    <div className="input-group checkbox-group">
-                        <input type="checkbox" id="isCompounded" name="isCompounded" checked={formData.isCompounded} onChange={handleChange} />
-                        <label htmlFor="isCompounded" style={{ marginBottom: 0 }}>Is it compounded?</label>
+
+                    {/* Mode Toggle */}
+                    <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', padding: '10px 0', borderBottom: '1px solid #333' }}>
+                        <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <input
+                                type="radio"
+                                name="mfMode"
+                                value="live"
+                                checked={mfMode === 'live'}
+                                onChange={() => setMfMode('live')}
+                            />
+                            Live Tracking (USA Tickers)
+                        </label>
+                        <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <input
+                                type="radio"
+                                name="mfMode"
+                                value="sip"
+                                checked={mfMode === 'sip'}
+                                onChange={() => setMfMode('sip')}
+                            />
+                            SIP Calculator
+                        </label>
                     </div>
-                    {formData.isCompounded && (
-                        <div className="input-group"><label>Compound Rate (%)</label><input type="number" name="compoundRate" value={formData.compoundRate} onChange={handleChange} /></div>
+
+                    {mfMode === 'live' ? (
+                        <>
+                            <div className="input-group"><label>Ticker Symbol (e.g., VTSAX, SWPPX)</label><input type="text" name="symbol" value={formData.symbol || ''} onChange={(e) => setFormData(prev => ({ ...prev, symbol: e.target.value.toUpperCase() }))} /></div>
+                            <div className="input-group"><label>Total Units / Quantity</label><input type="number" name="quantity" value={formData.quantity} onChange={handleChange} /></div>
+                            <div className="input-group"><label>Average Nav / Buy Price ($)</label><input type="number" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} /></div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="input-group"><label>Recurring Investment Amount ($)</label><input type="number" name="invested" value={formData.invested} onChange={handleChange} /></div>
+                            <div className="input-group"><label>Recurring Every (Months)</label><input type="number" name="recurringMonths" value={formData.recurringMonths} onChange={handleChange} /></div>
+                            <div className="input-group"><label>Start Date</label><input type="date" name="startDate" value={formData.startDate} onChange={handleChange} /></div>
+                            <div className="input-group checkbox-group">
+                                <input type="checkbox" id="isCompounded" name="isCompounded" checked={formData.isCompounded} onChange={handleChange} />
+                                <label htmlFor="isCompounded">Is it compounded?</label>
+                            </div>
+                            {formData.isCompounded && (
+                                <div className="input-group"><label>Compound Rate (%)</label><input type="number" name="compoundRate" value={formData.compoundRate} onChange={handleChange} /></div>
+                            )}
+                        </>
                     )}
                 </>;
             case 'fd':
@@ -502,6 +596,7 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
             case 'silver':
                 return <>
                     <div className="input-group"><label>Item Name (e.g., Gold Bar, Silver Coin)</label><input type="text" name="name" value={formData.name} onChange={handleChange} /></div>
+                    <div className="input-group"><label>Weight (in Ounces/oz)</label><input type="number" name="quantity" value={formData.quantity} onChange={handleChange} /></div>
                     <div className="input-group"><label>Purchase Price ($)</label><input type="number" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} /></div>
                 </>;
             case 'postRetirement':
@@ -594,120 +689,172 @@ const calculateInsuranceTotal = (item) => {
 };
 
 
+// --- Data Definitions ---
+const categories = {
+    investment: [
+        { id: 'stocks', label: 'Stock' }, { id: 'properties', label: 'Properties' },
+        { id: 'mutualFunds', label: 'Mutual Funds' }, { id: 'fd', label: 'FD (Bank)' },
+        { id: 'gold', label: 'Gold' }, { id: 'silver', label: 'Silver' },
+        { id: 'postRetirement', label: 'Post-retirement Living' },
+    ],
+    lifeEvents: [
+        { id: 'marriage', label: 'Marriage' }, { id: 'education', label: 'Education' },
+        { id: 'bills', label: 'Household Bills' }, { id: 'loans', label: 'Loans' },
+        { id: 'personalExpense', label: 'Personal Expense' }, { id: 'insurance', label: 'Insurance' },
+    ],
+};
+
 // --- Main Dashboard Component ---
 export default function DashboardPage() {
-    // const API_BASE_URL = 'https://finsim-api-neqc.onrender.com'; // Deprecated
     const navigate = useNavigate();
 
     // --- State Management ---
-
-    // --- UPDATED: Function to get initial data from localStorage or use default ---
-    const getInitialData = () => {
-        try {
-            const savedData = localStorage.getItem('financialData');
-            if (savedData) {
-                return JSON.parse(savedData);
-            }
-        } catch (error) {
-            console.error("Error parsing financial data from localStorage", error);
-        }
-        // Return the default hardcoded data if nothing is saved or if parsing fails
-        return {
-            stocks: [{ id: 1, name: 'AAPL', quantity: 10, purchasePrice: 150, currentPrice: 175 },],
-            properties: [{ id: 1, name: 'Primary Residence', purchasePrice: 300000, purchaseDate: '2020-01-01', growthRate: 7.5, currentValue: 350000 },],
-            mutualFunds: [{ id: 1, name: 'Vanguard S&P 500', invested: 500, startDate: '2021-01-01', isCompounded: true, compoundRate: 16, recurringMonths: 1, currentValue: 12000 },],
-            fd: [{ id: 1, name: 'Bank of America CD', principal: 5000, interestRate: 2.5, years: 2 },],
-            gold: [], silver: [], marriage: [], education: [], bills: [],
-            loans: [{ id: 1, name: 'Car Loan', cost: 25000, loanRate: 4.5, startYear: 2022 }],
-            personalExpense: [],
-            insurance: [{ id: 1, name: 'Health Insurance', cost: 1200, startYear: 2021 }],
-            postRetirement: [],
-        };
-    };
-
-    const [financialData, setFinancialData] = useState(getInitialData);
+    const [financialData, setFinancialData] = useState({
+        stocks: [], properties: [], mutualFunds: [], fd: [],
+        gold: [], silver: [],
+        marriage: [], education: [], bills: [], loans: [], personalExpense: [], insurance: [],
+        postRetirement: []
+    });
     const [activeCategory, setActiveCategory] = useState('stocks');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalConfig, setModalConfig] = useState({ mode: 'add', category: null, item: null });
     const [isLoadingPrices, setIsLoadingPrices] = useState(false);
 
-    // --- NEW: useEffect to save data to localStorage whenever it changes ---
+    // --- Fetch Data from API on Mount ---
     useEffect(() => {
-        try {
-            localStorage.setItem('financialData', JSON.stringify(financialData));
-        } catch (error) {
-            console.error("Error saving financial data to localStorage", error);
-        }
-    }, [financialData]);
+        const fetchFinancialData = async () => {
+            const token = localStorage.getItem('token');
+            if (!token) return;
 
+            try {
+                const response = await fetch('/api/financial', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
 
-    // --- Data Definitions (No changes) ---
-    const categories = {
-        investment: [
-            { id: 'stocks', label: 'Stock' }, { id: 'properties', label: 'Properties' },
-            { id: 'mutualFunds', label: 'Mutual Funds' }, { id: 'fd', label: 'FD (Bank)' },
-            { id: 'gold', label: 'Gold' }, { id: 'silver', label: 'Silver' },
-            { id: 'postRetirement', label: 'Post-retirement Living' },
-        ],
-        lifeEvents: [
-            { id: 'marriage', label: 'Marriage' }, { id: 'education', label: 'Education' },
-            { id: 'bills', label: 'Household Bills' }, { id: 'loans', label: 'Loans' },
-            { id: 'personalExpense', label: 'Personal Expense' }, { id: 'insurance', label: 'Insurance' },
-        ],
-    };
+                if (response.ok) {
+                    const data = await response.json();
 
-    // --- API Integration (BUG FIX: Prevent race conditions) ---
+                    // Merge fetched data with initial structure to ensure all keys exist
+                    setFinancialData(prev => ({
+                        ...prev,
+                        ...data
+                    }));
+                } else {
+                    console.error('Failed to fetch financial data');
+                }
+            } catch (error) {
+                console.error('Error fetching financial data:', error);
+            }
+        };
+
+        fetchFinancialData();
+    }, []);
+
+    // --- API Integration (Handle Live Prices) ---
     const handleRefreshPrices = async () => {
         setIsLoadingPrices(true);
         try {
+            const token = localStorage.getItem('token');
             const priceUpdates = {
                 stocks: {},
                 gold: null,
-                silver: null,
+                silver: null
             };
+            const promises = [];
 
-            const token = localStorage.getItem('token');
-            const stockPromises = financialData.stocks.map(stock =>
-                fetch(`/api/stocks/${stock.name}`, {
+            // 1. Fetch Stock and Mutual Fund Prices
+            // Combine stocks and mutual funds for fetching if they have symbols
+            const itemsToFetch = [
+                ...(financialData.stocks || []),
+                ...(financialData.mutualFunds || []).filter(mf => mf.symbol)
+            ];
+
+            if (itemsToFetch.length > 0) {
+                const stockPromises = itemsToFetch.map(item =>
+                    fetch(`/api/stocks/${item.symbol || item.name}`, { // Fallback to name if symbol missing (for old stocks)
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                        .then(res => res.ok ? res.json() : Promise.reject())
+                        .then(data => {
+                            // Store by Symbol if available, else Name
+                            const key = item.symbol || item.name;
+                            priceUpdates.stocks[key] = { price: data.c, prevClose: data.pc };
+                        })
+                        .catch((err) => console.error(`Failed to fetch ${item.symbol || item.name}`, err))
+                );
+                promises.push(...stockPromises);
+            }
+
+            // 2. Fetch Gold Price (if any gold items exist)
+            if (financialData.gold && financialData.gold.length > 0) {
+                const goldPromise = fetch(`/api/commodities/gold`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 })
                     .then(res => res.ok ? res.json() : Promise.reject())
-                    .then(data => { priceUpdates.stocks[stock.name] = { price: data.c, prevClose: data.pc }; }) // Store both price and previous close
-                    .catch((err) => console.error(`Failed to fetch ${stock.name}`, err))
-            );
+                    .then(data => {
+                        // API returns price_per_ounce_usd
+                        // Store directly as currentValue (since quantity is now in Ounces)
+                        priceUpdates.gold = data.price_per_ounce_usd;
+                    })
+                    .catch(err => console.error("Failed to fetch Gold price", err));
+                promises.push(goldPromise);
+            }
 
-            // Gold/Silver fetching disabled for now as we focus on US Stocks
-            // const goldPromise = financialData.gold.length > 0 ? fetch(`${API_BASE_URL}/commodities/gold`)
-            //     .then(res => res.ok ? res.json() : Promise.reject())
-            //     .then(data => { priceUpdates.gold = data.price_per_gram_inr; })
-            //     .catch(() => { }) : Promise.resolve();
+            // 3. Fetch Silver Price (if any silver items exist)
+            if (financialData.silver && financialData.silver.length > 0) {
+                const silverPromise = fetch(`/api/commodities/silver`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                })
+                    .then(res => res.ok ? res.json() : Promise.reject())
+                    .then(data => {
+                        priceUpdates.silver = data.price_per_ounce_usd;
+                    })
+                    .catch(err => console.error("Failed to fetch Silver price", err));
+                promises.push(silverPromise);
+            }
 
-            // const silverPromise = financialData.silver.length > 0 ? fetch(`${API_BASE_URL}/commodities/silver`)
-            //     .then(res => res.ok ? res.json() : Promise.reject())
-            //     .then(data => { priceUpdates.silver = data.price_per_gram_inr; })
-            //     .catch(() => { }) : Promise.resolve();
-
-            await Promise.all([...stockPromises]);
+            await Promise.all(promises);
 
             setFinancialData(prevData => {
                 const newData = JSON.parse(JSON.stringify(prevData));
                 let pricesWereUpdated = false;
 
-                newData.stocks.forEach(stock => {
-                    if (priceUpdates.stocks[stock.name] !== undefined) {
-                        stock.currentPrice = priceUpdates.stocks[stock.name].price;
-                        stock.previousClose = priceUpdates.stocks[stock.name].prevClose;
-                        pricesWereUpdated = true;
-                    }
-                });
+                // Update Stocks
+                if (newData.stocks) {
+                    newData.stocks.forEach(stock => {
+                        const key = stock.symbol || stock.name;
+                        if (priceUpdates.stocks[key] !== undefined) {
+                            stock.currentPrice = priceUpdates.stocks[key].price;
+                            stock.previousClose = priceUpdates.stocks[key].prevClose;
+                            pricesWereUpdated = true;
+                        }
+                    });
+                }
 
-                if (priceUpdates.gold !== null) {
-                    newData.gold.forEach(i => i.currentValue = priceUpdates.gold);
+                // Update Mutual Funds
+                if (newData.mutualFunds) {
+                    newData.mutualFunds.forEach(mf => {
+                        if (mf.symbol && priceUpdates.stocks[mf.symbol] !== undefined) {
+                            mf.currentPrice = priceUpdates.stocks[mf.symbol].price;
+                            mf.previousClose = priceUpdates.stocks[mf.symbol].prevClose;
+                            pricesWereUpdated = true;
+                        }
+                    });
+                }
+
+                // Update Gold
+                if (priceUpdates.gold !== null && newData.gold) {
+                    newData.gold.forEach(item => {
+                        item.currentValue = priceUpdates.gold; // Per Ounce
+                    });
                     pricesWereUpdated = true;
                 }
 
-                if (priceUpdates.silver !== null) {
-                    newData.silver.forEach(i => i.currentValue = priceUpdates.silver);
+                // Update Silver
+                if (priceUpdates.silver !== null && newData.silver) {
+                    newData.silver.forEach(item => {
+                        item.currentValue = priceUpdates.silver; // Per Ounce
+                    });
                     pricesWereUpdated = true;
                 }
 
@@ -721,28 +868,98 @@ export default function DashboardPage() {
         }
     };
 
+    // Auto-refresh prices on mount or when items change
     useEffect(() => {
-        handleRefreshPrices();
+        const hasStocks = financialData.stocks?.length > 0;
+        const hasGold = financialData.gold?.length > 0;
+        const hasSilver = financialData.silver?.length > 0;
+
+        if (hasStocks || hasGold || hasSilver) {
+            handleRefreshPrices();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [financialData.stocks?.length, financialData.gold?.length, financialData.silver?.length]);
 
+    // --- Save Data via API ---
+    const handleSaveItem = async (category, itemToSave) => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert("Please login to save data.");
+            return;
+        }
 
-    // --- Event Handlers (No changes) ---
+        try {
+            let savedItem;
+            if (modalConfig.mode === 'add') {
+                const response = await fetch('/api/financial', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ type: category, ...itemToSave })
+                });
+
+                if (response.ok) {
+                    savedItem = await response.json();
+                    setFinancialData(prev => ({
+                        ...prev,
+                        [category]: [...(prev[category] || []), savedItem]
+                    }));
+                }
+            } else {
+                const { id, ...updates } = itemToSave;
+                const response = await fetch(`/api/financial/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(updates)
+                });
+
+                if (response.ok) {
+                    savedItem = await response.json();
+                    setFinancialData(prev => ({
+                        ...prev,
+                        [category]: prev[category].map(item => item.id === savedItem.id ? savedItem : item)
+                    }));
+                }
+            }
+        } catch (error) {
+            console.error('Error saving item:', error);
+            alert('Failed to save item. Please try again.');
+        }
+    };
+
+    // --- Remove Data via API ---
+    const handleRemoveItem = async (category, itemId) => {
+        const token = localStorage.getItem('token');
+        try {
+            const response = await fetch(`/api/financial/${itemId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                setFinancialData(prev => ({
+                    ...prev,
+                    [category]: prev[category].filter(item => item.id !== itemId)
+                }));
+            } else {
+                console.error('Failed to delete item');
+            }
+        } catch (error) {
+            console.error('Error deleting item:', error);
+            alert('Failed to delete item.');
+        }
+    };
+
+    // --- Event Handlers ---
     const handleSignOut = () => navigate('/');
     const openModal = (mode, category, item = null) => {
         setModalConfig({ mode, category, item });
         setIsModalOpen(true);
-    };
-    const handleSaveItem = (category, itemToSave) => {
-        const list = financialData[category];
-        if (modalConfig.mode === 'add') {
-            setFinancialData(prev => ({ ...prev, [category]: [...list, { ...itemToSave, id: Date.now() }] }));
-        } else {
-            setFinancialData(prev => ({ ...prev, [category]: list.map(item => item.id === itemToSave.id ? itemToSave : item) }));
-        }
-    };
-    const handleRemoveItem = (category, itemId) => {
-        setFinancialData(prev => ({ ...prev, [category]: prev[category].filter(item => item.id !== itemId) }));
     };
     const handleCategoryClick = (id) => {
         setActiveCategory(id);
@@ -751,32 +968,64 @@ export default function DashboardPage() {
         navigate('/projection', { state: { financialData } });
     };
 
-    // --- Calculation Logic for Footer (No changes) ---
+    // --- Calculation Logic for Footer ---
     const categoryTotal = useMemo(() => {
         const items = financialData[activeCategory] || [];
         let total = 0, label = '', type = 'investment';
 
         switch (activeCategory) {
-            case 'stocks': label = 'Total Stock P/L'; total = items.reduce((acc, s) => acc + (s.currentPrice - s.purchasePrice) * s.quantity, 0); break;
-            case 'properties': label = 'Total Property Value Gain'; total = items.reduce((acc, p) => acc + (calculatePropertyValue(p) - p.purchasePrice), 0); break;
+            case 'stocks':
+                label = 'Total Stock P/L';
+                total = items.reduce((acc, s) => acc + (s.currentPrice - s.purchasePrice) * s.quantity, 0);
+                break;
+            case 'properties':
+                label = 'Total Property Value Gain';
+                total = items.reduce((acc, p) => acc + (calculatePropertyValue(p) - p.purchasePrice), 0);
+                break;
             case 'mutualFunds':
                 label = 'Total Mutual Fund Gain';
+                // Calculate P/L based on Live Price vs Avg Buy Price
                 total = items.reduce((acc, m) => {
-                    const numInvestments = (Math.floor(((new Date() - new Date(m.startDate)) / (1000 * 60 * 60 * 24 * 30.44)) / m.recurringMonths) + 1);
-                    const totalInvested = m.invested * (numInvestments > 0 ? numInvestments : 0);
-                    return acc + (calculateMutualFundValue(m) - totalInvested);
+                    const currentVal = (m.currentPrice || m.purchasePrice || 0) * (m.quantity || 0);
+                    const investedVal = (m.purchasePrice || 0) * (m.quantity || 0);
+                    return acc + (currentVal - investedVal);
                 }, 0);
                 break;
-            case 'fd': label = 'Total Interest Earned'; total = items.reduce((acc, f) => acc + (f.principal * Math.pow(1 + f.interestRate / 100, f.years) - f.principal), 0); break;
-            case 'gold': label = 'Total Gold Gain'; total = items.reduce((acc, g) => acc + (g.currentValue - g.purchasePrice), 0); break;
-            case 'silver': label = 'Total Silver Gain'; total = items.reduce((acc, s) => acc + (s.currentValue - s.purchasePrice), 0); break;
-            case 'postRetirement': label = 'Total Retirement Savings'; total = items.reduce((acc, item) => acc + (item.amount || 0), 0); break;
-            case 'loans': label = 'Total Remaining Loans'; total = items.reduce((acc, l) => acc + calculateRemainingLoan(l), 0); type = 'cost'; break;
-            case 'insurance': label = 'Total Insurance Paid'; total = items.reduce((acc, i) => acc + calculateInsuranceTotal(i), 0); type = 'cost'; break;
-            default: const info = categories.lifeEvents.find(c => c.id === activeCategory); label = `Total ${info ? info.label : ''} Cost`; total = items.reduce((acc, item) => acc + (item.cost || 0), 0); type = 'cost'; break;
+            case 'fd':
+                label = 'Total Interest Earned';
+                total = items.reduce((acc, f) => acc + (f.principal * Math.pow(1 + f.interestRate / 100, f.years) - f.principal), 0);
+                break;
+            case 'gold':
+                label = 'Total Gold Gain';
+                total = items.reduce((acc, g) => acc + (g.currentValue - g.purchasePrice), 0);
+                break;
+            case 'silver':
+                label = 'Total Silver Gain';
+                total = items.reduce((acc, s) => acc + (s.currentValue - s.purchasePrice), 0);
+                break;
+            case 'postRetirement':
+                label = 'Total Retirement Savings';
+                total = items.reduce((acc, item) => acc + (item.amount || 0), 0);
+                break;
+            case 'loans':
+                label = 'Total Remaining Loans';
+                total = items.reduce((acc, l) => acc + calculateRemainingLoan(l), 0);
+                type = 'cost';
+                break;
+            case 'insurance':
+                label = 'Total Insurance Paid';
+                total = items.reduce((acc, i) => acc + calculateInsuranceTotal(i), 0);
+                type = 'cost';
+                break;
+            default:
+                const info = categories.lifeEvents.find(c => c.id === activeCategory);
+                label = `Total ${info ? info.label : ''} Cost`;
+                total = items.reduce((acc, item) => acc + (item.cost || 0), 0);
+                type = 'cost';
+                break;
         }
         return { label, amount: total, type };
-    }, [activeCategory, financialData, categories.lifeEvents]);
+    }, [activeCategory, financialData]);
 
     // --- Render Functions (No changes) ---
     const renderItem = (category, item) => {
@@ -817,16 +1066,52 @@ export default function DashboardPage() {
             case 'properties': currentValue = calculatePropertyValue(item); profitLoss = currentValue - item.purchasePrice; isItemProfit = profitLoss >= 0;
                 return <><span className="item-name">{item.name}</span> <span className={isItemProfit ? 'text-profit' : 'text-loss'}>Value Gain: ${profitLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></>;
             case 'mutualFunds':
-                currentValue = calculateMutualFundValue(item);
-                const numInvestments = (Math.floor(((new Date() - new Date(item.startDate)) / (1000 * 60 * 60 * 24 * 30.44)) / item.recurringMonths) + 1);
-                const totalInvested = item.invested * (numInvestments > 0 ? numInvestments : 0);
-                profitLoss = currentValue - totalInvested;
-                isItemProfit = profitLoss >= 0;
-                return <><span className="item-name">{item.name}</span> <span className={isItemProfit ? 'text-profit' : 'text-loss'}>Gain: ${profitLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></>;
+                // MF Logic: Similar to Stocks now (Live Price * Qty)
+                // Fallback to Purchase Price if Live Price not available yet
+                const mfCurrentPrice = item.currentPrice || item.purchasePrice || 0;
+                const mfTotalValue = mfCurrentPrice * (item.quantity || 0);
+                const mfTotalCost = (item.purchasePrice || 0) * (item.quantity || 0);
+                const mfPL = mfTotalValue - mfTotalCost;
+                const isMfProfit = mfPL >= 0;
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="item-name">{item.name} ({item.symbol})</span>
+                            <span style={{ fontWeight: '600' }}>NAV: ${mfCurrentPrice.toLocaleString()}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
+                            <span className={isMfProfit ? 'text-profit' : 'text-loss'}>
+                                P/L: ${mfPL.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-secondary" style={{ fontSize: '0.85rem' }}>
+                                Value: ${mfTotalValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                    </div>
+                );
             case 'fd': const maturityValue = (item.principal * Math.pow(1 + item.interestRate / 100, item.years));
                 return <><span className="item-name">{item.name}</span> <span>Matures to: ${maturityValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></>;
-            case 'gold': case 'silver': profitLoss = item.currentValue - item.purchasePrice; isItemProfit = profitLoss >= 0;
-                return <><span className="item-name">{item.name}</span> <span className={isItemProfit ? 'text-profit' : 'text-loss'}>Value Gain: ${profitLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></>;
+            case 'gold': case 'silver':
+                const currentRate = item.currentValue || 0;
+                const totalCurrentValue = currentRate * (item.quantity || 0);
+                profitLoss = totalCurrentValue - item.purchasePrice;
+                isItemProfit = profitLoss >= 0;
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="item-name">{item.name} ({item.quantity} oz)</span>
+                            <span style={{ fontWeight: '600' }}>Rate: ${currentRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} /oz</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
+                            <span className={isItemProfit ? 'text-profit' : 'text-loss'}>
+                                Gain: ${profitLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-secondary" style={{ fontSize: '0.85rem' }}>
+                                Value: ${totalCurrentValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                    </div>
+                );
             case 'postRetirement':
                 return <><span className="item-name">{item.name}</span> <span className="item-cost text-profit">Contribution: ${item.amount?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}</span></>;
             case 'loans':
@@ -890,7 +1175,7 @@ export default function DashboardPage() {
                     <>
                         <div className="live-update-section">
                             <h2>{categories.investment.find(c => c.id === activeCategory)?.label || categories.lifeEvents.find(c => c.id === activeCategory)?.label}</h2>
-                            {['stocks', 'gold', 'silver'].includes(activeCategory) && (
+                            {['stocks', 'mutualFunds', 'gold', 'silver'].includes(activeCategory) && (
                                 <button onClick={handleRefreshPrices} disabled={isLoadingPrices} className="live-update-button">
                                     {isLoadingPrices ? 'Updating...' : 'Refresh Live Prices'}
                                 </button>

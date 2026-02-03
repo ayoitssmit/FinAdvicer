@@ -16,8 +16,21 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: true,
-        minlength: 6
+        // Password is now optional because of Google Auth
+        required: false, // Changed from true
+        minlength: 6,
+        validate: {
+            validator: function (v) {
+                // Password is required if googleId is not present
+                return this.googleId || v;
+            },
+            message: 'Password is required if not signing in with Google'
+        }
+    },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
     },
     createdAt: {
         type: Date,

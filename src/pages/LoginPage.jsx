@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import './AuthForm.css'; // This is a shared CSS file we will create soon
+import './AuthForm.css';
 
 const LoginPage = () => {
     const [formData, setFormData] = useState({
@@ -73,6 +73,7 @@ const LoginPage = () => {
                 <button type="submit" className="btn btn-primary auth-button">
                     Login
                 </button>
+
                 <p className="auth-switch">
                     Don't have an account? <Link to="/signup">Sign Up</Link>
                 </p>
