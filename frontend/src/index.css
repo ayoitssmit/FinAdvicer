@@ -1,0 +1,100 @@
+/* CSS Variables for a professional and classy light theme */
+:root {
+  --primary-color: #B6955E; /* A tasteful, muted gold */
+  --background-color: #FFFFFF; /* Clean white background */
+  --card-color: #F8F9FA; /* A very light grey for subtle contrast */
+  --text-color: #212529; /* A soft, dark black for text */
+  --subtle-text-color: #6c757d; /* Muted grey for secondary text */
+  --border-color: #DEE2E6;
+  --font-family-headings: 'Playfair Display', serif;
+  --font-family-body: 'Lato', sans-serif;
+}
+
+/* Global Resets and Defaults */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-family-body);
+  background-color: var(--background-color);
+  color: var(--text-color);
+  line-height: 1.7;
+}
+
+/* Apply the classy font to all major headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-family-headings);
+  font-weight: 700;
+}
+
+/* Utility Classes */
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* Section Styling */
+.section {
+  padding: 5rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.section:last-of-type {
+  border-bottom: none;
+}
+
+.section-title {
+  font-size: 2.8rem;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.section-subtitle {
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--subtle-text-color);
+  margin-bottom: 3rem;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Button Styles */
+.btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700; /* Bolder font for buttons */
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+  letter-spacing: 0.5px;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: #FFFFFF;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--primary-color);
+  border: 2px solid var(--primary-color);
+}
+
+.btn-secondary:hover {
+  background-color: var(--primary-color);
+  color: #FFFFFF;
+}
+
