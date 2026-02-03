@@ -1,6 +1,6 @@
-# FinAdvicer
+# FinAdviser
 
-FinAdvicer is a financial advice application designed to help users manage their finances, view dashboards, and project future financial states.
+FinAdviser is a financial advice application designed to help users manage their finances, view dashboards, and project future financial states.
 
 ## Features
 
