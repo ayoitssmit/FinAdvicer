@@ -91,11 +91,13 @@ const ProjectionPage = () => {
         };
 
         const current = calculateTotals(0);
+        const threeYear = calculateTotals(3);
         const fiveYear = calculateTotals(5);
         const tenYear = calculateTotals(10);
 
         const pieData = {
             0: { labels: ['Investments', 'Life Events'], datasets: [{ data: [current.investments, current.expenses] }] },
+            3: { labels: ['Investments', 'Life Events'], datasets: [{ data: [threeYear.investments, threeYear.expenses] }] },
             5: { labels: ['Investments', 'Life Events'], datasets: [{ data: [fiveYear.investments, fiveYear.expenses] }] },
             10: { labels: ['Investments', 'Life Events'], datasets: [{ data: [tenYear.investments, tenYear.expenses] }] }
         };
@@ -110,7 +112,7 @@ const ProjectionPage = () => {
         };
 
         return {
-            current, fiveYear, tenYear,
+            current, threeYear, fiveYear, tenYear,
             pie: pieData[activePeriod],
             line: activePeriod > 0 ? generateLineData(activePeriod) : null,
         };
@@ -133,7 +135,17 @@ const ProjectionPage = () => {
     const lineOptions = {
         responsive: true,
         plugins: { legend: { display: false }, title: { display: true, text: 'Projected Net Worth Growth' } },
-        scales: { y: { ticks: { callback: value => `$${(value / 1000).toFixed(0)}k` } } }
+        scales: {
+            y: {
+                ticks: {
+                    callback: value => {
+                        if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+                        if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
+                        return `$${value}`;
+                    }
+                }
+            }
+        }
     };
     const pieDatasetConfig = {
         backgroundColor: ['#B6955E', '#212529', '#6c757d', '#f8f9fa'],
@@ -187,7 +199,7 @@ const ProjectionPage = () => {
                   border-radius: 12px;
                   padding: 6px;
                   border: 1px solid var(--border-color);
-                  max-width: 600px;
+                  max-width: 900px;
                   margin: 2rem auto;
                   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
                 }
@@ -195,7 +207,7 @@ const ProjectionPage = () => {
                 .category-button {
                   background-color: transparent;
                   border: none;
-                  padding: 12px 24px;
+                  padding: 12px 16px;
                   font-size: 1rem;
                   font-weight: 600;
                   color: var(--text-secondary);
@@ -205,6 +217,7 @@ const ProjectionPage = () => {
                   flex: 1;
                   text-align: center;
                   outline: none;
+                  white-space: nowrap;
                 }
 
                 .category-button:hover:not(.active) {
@@ -227,6 +240,7 @@ const ProjectionPage = () => {
             {/* --- UPDATED: Button container --- */}
             <div className="button-group">
                 <button onClick={() => setActivePeriod(0)} className={`category-button ${activePeriod === 0 ? 'active' : ''}`}>Current Scenario</button>
+                <button onClick={() => setActivePeriod(3)} className={`category-button ${activePeriod === 3 ? 'active' : ''}`}>After 3 Years</button>
                 <button onClick={() => setActivePeriod(5)} className={`category-button ${activePeriod === 5 ? 'active' : ''}`}>After 5 Years</button>
                 <button onClick={() => setActivePeriod(10)} className={`category-button ${activePeriod === 10 ? 'active' : ''}`}>After 10 Years</button>
             </div>
@@ -239,11 +253,11 @@ const ProjectionPage = () => {
                     <div style={{ fontSize: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <p>
                             Total Investment Value:
-                            <strong className="text-profit"> ${projection[activePeriod === 5 ? 'fiveYear' : activePeriod === 10 ? 'tenYear' : 'current'].investments.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
+                            <strong className="text-profit"> ${projection[activePeriod === 3 ? 'threeYear' : activePeriod === 5 ? 'fiveYear' : activePeriod === 10 ? 'tenYear' : 'current'].investments.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
                         </p>
                         <p>
                             Total Life Event Expenses:
-                            <strong className="text-loss"> ${projection[activePeriod === 5 ? 'fiveYear' : activePeriod === 10 ? 'tenYear' : 'current'].expenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
+                            <strong className="text-loss"> ${projection[activePeriod === 3 ? 'threeYear' : activePeriod === 5 ? 'fiveYear' : activePeriod === 10 ? 'tenYear' : 'current'].expenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
                         </p>
                     </div>
                     {/* Flex grow pushes chart to center/bottom space */}

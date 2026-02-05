@@ -526,7 +526,7 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
         switch (config.category) {
             case 'stocks':
                 return <>
-                    <div className="input-group"><label>Stock Name (e.g. AAPL, RELIANCE.NS)</label><input type="text" name="name" value={formData.name} onChange={handleChange} /></div>
+                    <div className="input-group"><label>Stock Name (e.g. AAPL, NKE)</label><input type="text" name="name" value={formData.name} onChange={handleChange} /></div>
                     <div className="input-group"><label>Quantity</label><input type="number" name="quantity" value={formData.quantity} onChange={handleChange} /></div>
                     <div className="input-group"><label>Purchase Price ($)</label><input type="number" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} /></div>
                 </>;
