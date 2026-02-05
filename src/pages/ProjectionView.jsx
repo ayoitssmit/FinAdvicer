@@ -135,14 +135,59 @@ const ProjectionPage = () => {
             let investments = 0;
             let expenses = 0;
 
-            // Investments
-            financialData.stocks.forEach(s => investments += (s.currentPrice * s.quantity) * Math.pow(1.17, period));
+            // 1. ML-Supported Assets (Stocks, Mutual Funds, Gold, Silver)
+            // If period is 0, we calculate current value manually.
+            // If period > 0, we use the ML response if available.
+
+            if (period === 0) {
+                // Current Value Calculation (Standardized)
+                const sumAsset = (list) => {
+                    if (!list) return;
+                    list.forEach(item => {
+                        const price = item.currentPrice || item.purchasePrice || item.averagePrice || 0;
+                        const qty = item.quantity || 1;
+                        investments += price * qty;
+                    });
+                };
+                sumAsset(financialData.stocks);
+                sumAsset(financialData.mutualFunds);
+                sumAsset(financialData.gold);
+                sumAsset(financialData.silver);
+            } else {
+                // Future Value: Use ML Projections
+                // The ML response contains ALL these assets now (Phase 4 Unification)
+                if (mlProjections && mlProjections.length > 0) {
+                    mlProjections.forEach(proj => {
+                        const yearKey = period.toString();
+                        // Add Expected Value from ML
+                        // FIXED: Backend returns flattened keys ("3", "5", "10") at root level
+                        if (proj[yearKey]) {
+                            investments += proj[yearKey].expectedValue;
+                        } else {
+                            // Fallback if specific year missing (shouldn't happen)
+                            const baseInvest = proj.params?.mu ? 0 : 0; // Just safety
+                        }
+                    });
+                } else {
+                    // Fallback if ML is loading or failed: Use simple growth (but this should be rare now)
+                    const simpleGrow = (list) => {
+                        if (!list) return;
+                        list.forEach(i => {
+                            const val = (i.currentPrice || i.purchasePrice || 0) * (i.quantity || 1);
+                            investments += val * Math.pow(1.08, period); // Conservative 8% fallback
+                        });
+                    };
+                    simpleGrow(financialData.stocks);
+                    simpleGrow(financialData.mutualFunds);
+                    simpleGrow(financialData.gold);
+                    simpleGrow(financialData.silver);
+                }
+            }
+
+            // 2. Non-ML Assets (Properties, FDs, Post-Retirement) - Manual Projection
             financialData.properties.forEach(p => investments += calculatePropertyValue(p, period));
-            financialData.mutualFunds.forEach(m => investments += calculateMutualFundValue(m, period));
             financialData.fd.forEach(f => investments += f.principal * Math.pow(1 + f.interestRate / 100, f.years + period));
-            financialData.gold.forEach(g => investments += g.currentValue * Math.pow(1.17, period));
-            financialData.silver.forEach(s => investments += s.currentValue * Math.pow(1.17, period));
-            financialData.postRetirement.forEach(p => investments += p.amount * Math.pow(1.17, period));
+            financialData.postRetirement.forEach(p => investments += p.amount * Math.pow(1.06, period)); // Conservative 6%
 
             // Expenses
             const marriageExpenses = financialData.marriage.reduce((acc, item) => acc + item.cost, 0);

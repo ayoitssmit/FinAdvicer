@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Literal, Dict
 import numpy as np
 import pandas as pd
 # import lightgbm as lgb # Uncomment when model is trained
@@ -18,15 +18,21 @@ def read_root():
 
 # ... (Previous code)
 
-# --- 1. Data Contract (Updated for Phase 2) ---
+# --- 1. Data Contract (Strict Schema) ---
 class AssetProjectionInput(BaseModel):
-    assetClass: str  
-    symbol: str # Symbol is now mandatory for fetching
+    assetClass: Literal["stock", "mutual_fund", "gold", "silver"]
+    symbol: str
     investedAmount: float
-    # recentPrices: List[float] # REMOVED: We fetch this internally now
 
-class FullProjectionInput(AssetProjectionInput):
-    pass
+class ProjectionMetrics(BaseModel):
+    expectedValue: float
+    bestCase: float
+    worstCase: float
+
+class FullProjectionResponse(BaseModel):
+    params: dict
+    projection: Dict[str, ProjectionMetrics]
+    isSimulated: bool
 
 @app.get("/price/{symbol}")
 def get_price(symbol: str):
@@ -62,28 +68,70 @@ def get_price(symbol: str):
         # Return 404 so backend handles fallback
         raise HTTPException(status_code=404, detail="Price not found")
 
-@app.post("/project")
-def project_asset(data: FullProjectionInput):
-    # Default Safe Values (Fallback)
+from cache import cache
+
+# ... (Imports)
+
+@app.post("/project", response_model=FullProjectionResponse)
+def project_asset(data: AssetProjectionInput):
+    # --- 1. Canonical Commodity Mapping (Phase 3) ---
+    COMMODITY_MAP = {
+        "gold": "GC=F",
+        "silver": "SI=F"
+    }
+    
+    # Force override ticker if asset is a commodity
+    if data.assetClass in COMMODITY_MAP:
+        data.symbol = COMMODITY_MAP[data.assetClass]
+
+    # 1. Check Projection Cache (Fastest Path)
+    # Key: projection:stock:{symbol}:{amount}
+    CACHE_VERSION = "v2" # Increment to invalidate old caches (Phase 4 fix)
+    proj_key = f"{CACHE_VERSION}:projection:{data.assetClass}:{data.symbol}:{data.investedAmount}"
+    cached_projection = cache.get(proj_key)
+    
+    if cached_projection:
+        return cached_projection
+
+    # Default Safe Values
     mu, sigma = 0.06, 0.10 
     is_simulated = False
     simulation_results = {}
 
     try:
-        # 1. Fetch Data (if stock)
-        if data.assetClass == "stock":
+        # 2. Check Parameter Cache (Avoid yfinance)
+        # Key: asset:stock:{symbol}:params
+        param_key = f"asset:{data.assetClass}:{data.symbol}:params"
+        cached_params = cache.get(param_key)
+        
+        fetched_params = False
+
+        if cached_params:
+            mu = cached_params['mu']
+            sigma = cached_params['sigma']
+            fetched_params = True
+        
+        # 3. Fetch Data if needed (and valid asset class)
+        if not fetched_params and data.assetClass in ["stock", "mutual_fund", "gold", "silver"]:
             try:
                 ticker = yf.Ticker(data.symbol)
-                # Fetch 10y history
                 hist = ticker.history(period="10y")
                 
                 if not hist.empty:
                     prices = hist['Close'].values
-                    # Feature Engineering
                     returns = np.diff(prices) / prices[:-1]
                     if len(returns) > 0:
                         sigma = float(np.std(returns) * np.sqrt(252))
                         mu = float(np.mean(returns) * 252)
+                        
+                        # --- Financial Safety Caps (Phase 3) ---
+                        # Prevent macro assets from having unrealistic growth or volatility
+                        if data.assetClass in ["gold", "silver"]:
+                            mu = float(np.clip(mu, 0.02, 0.10))      # Max 10% growth
+                            sigma = float(np.clip(sigma, 0.05, 0.25)) # Max 25% volatility
+                        
+                        # Cache Parameters (7 Days)
+                        cache.set(param_key, {"mu": mu, "sigma": sigma}, 7 * 24 * 60 * 60)
                     else:
                         print(f"Warning: Not enough return data for {data.symbol}")
                         is_simulated = True
@@ -95,27 +143,24 @@ def project_asset(data: FullProjectionInput):
                 print(f"Error fetching yfinance data for {data.symbol}: {e}")
                 is_simulated = True
 
-        # 2. Run Monte Carlo (with calculated or default params)
+        # 4. Run Monte Carlo
         simulation_results = run_simulation(
             initial_investment=data.investedAmount,
             expected_return=mu,
             volatility=sigma,
-            years_list=[3, 5, 10]
+            years_list=list(range(1, 11)) # Return all years 1-10 for smooth graphs
         )
     
     except Exception as e:
         print(f"CRITICAL ERROR in project endpoint: {e}")
-        # Absolute last resort fallback
         is_simulated = True
-        # Simple single-point fallback if run_simulation failed
         simulation_results = {
-            3: {"expectedValue": data.investedAmount * 1.18, "bestCase": data.investedAmount * 1.3, "worstCase": data.investedAmount * 1.0},
-            5: {"expectedValue": data.investedAmount * 1.33, "bestCase": data.investedAmount * 1.5, "worstCase": data.investedAmount * 1.1},
-            10: {"expectedValue": data.investedAmount * 1.79, "bestCase": data.investedAmount * 2.0, "worstCase": data.investedAmount * 1.2}
+            "3": {"expectedValue": data.investedAmount * 1.18, "bestCase": data.investedAmount * 1.3, "worstCase": data.investedAmount * 1.0},
+            "5": {"expectedValue": data.investedAmount * 1.33, "bestCase": data.investedAmount * 1.5, "worstCase": data.investedAmount * 1.1},
+            "10": {"expectedValue": data.investedAmount * 1.79, "bestCase": data.investedAmount * 2.0, "worstCase": data.investedAmount * 1.2}
         }
 
-    
-    # Sanitize all float values to prevent NaN JSON serialization errors
+    # Sanitize inputs (as before)
     def safe_float(val, default=0.0):
         try:
             if np.isnan(val) or np.isinf(val):
@@ -124,21 +169,26 @@ def project_asset(data: FullProjectionInput):
         except:
             return default
     
-    # Sanitize mu and sigma
     mu = safe_float(mu, 0.06)
     sigma = safe_float(sigma, 0.10)
     
-    # Sanitize all projection results
     sanitized_results = {}
     for year, values in simulation_results.items():
-        sanitized_results[year] = {
+        # Ensure year key is string for Pydantic/JSON
+        year_key = str(year)
+        sanitized_results[year_key] = {
             "expectedValue": safe_float(values.get("expectedValue", 0)),
             "bestCase": safe_float(values.get("bestCase", 0)),
             "worstCase": safe_float(values.get("worstCase", 0))
         }
     
-    return {
+    final_response = {
         "params": {"mu": mu, "sigma": sigma},
         "projection": sanitized_results,
         "isSimulated": is_simulated
     }
+    
+    # Cache Result (24 Hours)
+    cache.set(proj_key, final_response, 24 * 60 * 60)
+    
+    return final_response

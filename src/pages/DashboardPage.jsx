@@ -281,10 +281,12 @@ const DashboardStyles = () => (
     .total-footer {
       position: fixed;
       bottom: 0;
-      left: 20%;
+      left: 20%; /* Fallback */
+      left: min(20%, 240px); /* Match sidebar width cap */
       right: 0;
       padding: 20px;
       pointer-events: none;
+      z-index: 10;
     }
 
     .total-container {
@@ -521,26 +523,43 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
         e.preventDefault();
 
         // Validation: Prevent mutual funds in stocks section and vice versa
-        if (config.category === 'stocks' || config.category === 'mutualFunds') {
-            const symbolOrName = formData.name?.toUpperCase().trim();
+        if (config.category === 'stocks' || (config.category === 'mutualFunds' && mfMode === 'live')) {
+            // Determine which field acts as the Ticker Symbol
+            // Stocks: The 'name' field IS the ticker (e.g. AAPL)
+            // Mutual Funds: The 'symbol' field is the ticker (e.g. VFIAX), 'name' is just a label
+            let tickerToValidate = '';
 
-            if (!symbolOrName) {
-                setValidationError('Please enter a symbol or name');
+            if (config.category === 'stocks') {
+                tickerToValidate = formData.name;
+            } else {
+                tickerToValidate = formData.symbol;
+            }
+
+            // Name is always required for both
+            if (!formData.name?.trim()) {
+                setValidationError('Please enter a Name');
+                return;
+            }
+
+            tickerToValidate = tickerToValidate?.toUpperCase().trim();
+
+            if (!tickerToValidate) {
+                setValidationError('Please enter a Ticker Symbol');
                 return;
             }
 
             // Heuristic: Mutual funds typically have 5+ characters and often end with X
             // ETFs/Stocks are typically 1-4 characters (SPY, QQQ, AAPL, MSFT)
-            const isMutualFundLike = symbolOrName.length >= 5 && symbolOrName.endsWith('X');
-            const isStockETFLike = symbolOrName.length <= 4 || !symbolOrName.endsWith('X');
+            const isMutualFundLike = tickerToValidate.length >= 5 && tickerToValidate.endsWith('X');
+            const isStockETFLike = tickerToValidate.length <= 4 || !tickerToValidate.endsWith('X');
 
             if (config.category === 'stocks' && isMutualFundLike) {
-                setValidationError(`❌ Not a Stock/ETF. "${symbolOrName}" appears to be a Mutual Fund. Add it to the Mutual Funds section.`);
+                setValidationError(`Not a Stock/ETF. "${tickerToValidate}" appears to be a Mutual Fund. Add it to the Mutual Funds section.`);
                 return;
             }
 
             if (config.category === 'mutualFunds' && isStockETFLike) {
-                setValidationError(`❌ Not a Mutual Fund. "${symbolOrName}" appears to be a Stock/ETF. Add it to the Stocks & ETFs section.`);
+                setValidationError(`Not a Mutual Fund. "${tickerToValidate}" appears to be a Stock/ETF. Add it to the Stocks & ETFs section.`);
                 return;
             }
         }

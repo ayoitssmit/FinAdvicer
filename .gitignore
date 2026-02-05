@@ -22,3 +22,6 @@ build/
 # System
 .DS_Store
 Thumbs.db
+
+# ML Service
+ml_service/cache_store.json

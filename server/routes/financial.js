@@ -205,30 +205,55 @@ import axios from 'axios';
 // @access  Private
 router.post('/projection', verifyToken, async (req, res) => {
     try {
-        // 1. Get user stocks
-        const stocks = await Stock.find({ user: req.userId }).lean();
+        // 1. Get user stocks, mutual funds AND commodities
+        const [stocks, mutualFunds, commodities] = await Promise.all([
+            Stock.find({ user: req.userId }).lean(),
+            MutualFund.find({ user: req.userId }).lean(),
+            Commodity.find({ user: req.userId }).lean()
+        ]);
 
-        if (!stocks.length) {
-            return res.json({ stocks: [] });
+        if (!stocks.length && !mutualFunds.length && !commodities.length) {
+            return res.json({ projections: [] });
         }
 
         const projections = [];
         const ML_SERVICE_URL = 'http://127.0.0.1:8000/project';
 
-        // 2. Process each stock
-        for (const stock of stocks) {
-            const symbol = stock.symbol || stock.name; // Fallback
+        // Helper to Validate Contract (Phase 0 Guardrail)
+        const validateMLRequest = (payload) => {
+            const validAssets = ["stock", "mutual_fund", "gold", "silver"];
+            if (!validAssets.includes(payload.assetClass)) throw new Error(`Invalid assetClass: ${payload.assetClass}`);
+            if (typeof payload.symbol !== 'string' || !payload.symbol) throw new Error("Invalid symbol");
+            if (typeof payload.investedAmount !== 'number') throw new Error("Invalid investedAmount");
+        };
+
+        // Combine for processing (Map Commodity type 'gold'/'silver' to assetClass)
+        const allAssets = [
+            ...stocks.map(s => ({ ...s, assetClass: 'stock' })),
+            ...mutualFunds.map(mf => ({ ...mf, assetClass: 'mutual_fund' })),
+            ...commodities.map(c => ({ ...c, assetClass: c.type, symbol: c.type.toUpperCase() })) // Gold/Silver use type as symbol placeholder
+        ];
+
+        // 2. Process each asset
+        for (const asset of allAssets) {
+            const symbol = asset.symbol || asset.name; // Fallback
 
             // 3. Call ML Service directly (History fetched by Python now)
             try {
-                const mlResponse = await axios.post(ML_SERVICE_URL, {
-                    assetClass: "stock",
+                const mlPayload = {
+                    assetClass: asset.assetClass,
                     symbol: symbol,
-                    investedAmount: stock.quantity * stock.purchasePrice,
-                });
+                    investedAmount: asset.quantity * asset.purchasePrice, // Assuming MFs also have quantity/price or total invested
+                };
+
+                // Guardrail: Validate Contract
+                validateMLRequest(mlPayload);
+
+                const mlResponse = await axios.post(ML_SERVICE_URL, mlPayload);
 
                 projections.push({
                     symbol,
+                    assetClass: asset.assetClass,
                     ...mlResponse.data.projection,
                     params: mlResponse.data.params,
                     isSimulated: mlResponse.data.isSimulated
@@ -236,11 +261,31 @@ router.post('/projection', verifyToken, async (req, res) => {
 
             } catch (err) {
                 console.error(`ML Service failed for ${symbol}:`, err.message);
-                // Fallback if ML service is down
+
+                // Fallback if ML service is down (Step 4.3: Always return valid shape)
+                // We return a conservative defaults so the UI graph doesn't crash
+                const invest = asset.quantity * asset.purchasePrice || 0;
+
+                // create a map of 1-10 years
+                const projectionMap = {};
+                for (let i = 1; i <= 10; i++) {
+                    // Simple linear growth assumption for fallback (8% per year)
+                    const fallbackRate = 1.08;
+                    const val = invest * Math.pow(fallbackRate, i);
+                    projectionMap[i.toString()] = {
+                        expectedValue: val,
+                        bestCase: val * 1.1,
+                        worstCase: val * 0.95
+                    };
+                }
+
                 projections.push({
                     symbol,
+                    assetClass: asset.assetClass,
                     error: "ML Service Unavailable",
-                    isSimulated: true
+                    isSimulated: true,
+                    params: { mu: 0.05, sigma: 0.10 }, // Safe default params
+                    ...projectionMap // Spread the 1-10 keys
                 });
             }
         }
