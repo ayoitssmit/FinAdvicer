@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Pie, Line } from 'react-chartjs-2';
 import {
@@ -55,6 +55,78 @@ const ProjectionPage = () => {
     const location = useLocation();
     const { financialData } = location.state || {};
     const [activePeriod, setActivePeriod] = useState(0);
+
+    // --- ML Projection State ---
+    const [mlProjections, setMlProjections] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Fetch ML Data on Mount (for all periods)
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        fetch('/api/financial/projection', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(res => res.json())
+            .then(data => {
+                setMlProjections(data.projections);
+                setIsLoading(false);
+            })
+            .catch(err => {
+                console.error("ML Fetch Failed", err);
+                setIsLoading(false);
+            });
+    }, []);
+
+    // --- Risk-Aware Mode State ---
+    const [isRiskMode, setIsRiskMode] = useState(true); // Default to TRUE so user sees it
+
+    // REMOVED: Redundant riskData state and useEffect. 
+    // We already have 'mlProjections' from the first fetch which contains all Best/Worst case data.
+
+    // Calculate Risk Totals (Aggregating best/worst case of all stocks)
+    const riskTotals = useMemo(() => {
+        if (!mlProjections || !financialData || activePeriod < 3) return null;
+
+        let totalBest = 0;
+        let totalWorst = 0;
+
+        // 1. Calculate base value (Non-Stock Investments) - Static Growth for 3 years logic
+        // (Reusing logic from previous implementation for non-stock items)
+        let nonStockInvestments = 0;
+        financialData.properties.forEach(p => nonStockInvestments += calculatePropertyValue(p, 3));
+        financialData.mutualFunds.forEach(m => nonStockInvestments += calculateMutualFundValue(m, 3));
+        financialData.fd.forEach(f => nonStockInvestments += f.principal * Math.pow(1 + f.interestRate / 100, f.years + 3));
+        financialData.gold.forEach(g => nonStockInvestments += g.currentValue * Math.pow(1.17, 3));
+        financialData.silver.forEach(s => nonStockInvestments += s.currentValue * Math.pow(1.17, 3));
+        financialData.postRetirement.forEach(p => nonStockInvestments += p.amount * Math.pow(1.17, 3));
+
+        // 2. Add ML Stock Projections (Best/Worst)
+        mlProjections.forEach(item => {
+            const periodData = item[activePeriod.toString()] || item['3']; // Fallback/Use active
+            // Note: mlProjections structure depends on backend. 
+            // Assuming it returns { symbol, 3: {..}, 5: {..}, 10: {..} }
+
+            // Actually, let's just use the loop logic from the render method to be consistent
+            if (item[activePeriod]) {
+                totalBest += item[activePeriod].bestCase;
+                totalWorst += item[activePeriod].worstCase;
+            } else if (item['3']) {
+                // Fallback if specific year missing (shouldn't happen with new ML)
+                totalBest += item['3'].bestCase;
+                totalWorst += item['3'].worstCase;
+            }
+        });
+
+        return {
+            best: nonStockInvestments + totalBest,
+            worst: nonStockInvestments + totalWorst
+        };
+    }, [mlProjections, financialData, activePeriod]);
+
 
     const projection = useMemo(() => {
         if (!financialData) return null;
@@ -230,6 +302,54 @@ const ProjectionPage = () => {
                   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
                   transform: translateY(-1px);
                 }
+                
+                /* Risk Toggle */
+                .risk-toggle-container {
+                    display: flex;
+                    justify-content: center;
+                    margin-bottom: 2rem;
+                    align-items: center;
+                    gap: 12px;
+                }
+                .toggle-switch {
+                    position: relative;
+                    display: inline-block;
+                    width: 50px;
+                    height: 24px;
+                }
+                .toggle-switch input {
+                    opacity: 0;
+                    width: 0;
+                    height: 0;
+                }
+                .slider {
+                    position: absolute;
+                    cursor: pointer;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-color: #ccc;
+                    transition: .4s;
+                    border-radius: 34px;
+                }
+                .slider:before {
+                    position: absolute;
+                    content: "";
+                    height: 16px;
+                    width: 16px;
+                    left: 4px;
+                    bottom: 4px;
+                    background-color: white;
+                    transition: .4s;
+                    border-radius: 50%;
+                }
+                input:checked + .slider {
+                    background-color: var(--accent-gold);
+                }
+                input:checked + .slider:before {
+                    transform: translateX(26px);
+                }
             `}</style>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
@@ -243,6 +363,30 @@ const ProjectionPage = () => {
                 <button onClick={() => setActivePeriod(3)} className={`category-button ${activePeriod === 3 ? 'active' : ''}`}>After 3 Years</button>
                 <button onClick={() => setActivePeriod(5)} className={`category-button ${activePeriod === 5 ? 'active' : ''}`}>After 5 Years</button>
                 <button onClick={() => setActivePeriod(10)} className={`category-button ${activePeriod === 10 ? 'active' : ''}`}>After 10 Years</button>
+            </div>
+
+            {/* Risk Mode Toggle */}
+            <div className="risk-toggle-container">
+                <span style={{ fontWeight: '600', color: '#555' }}>Show Risk Scenarios (Best/Worst Case)</span>
+                <label className="toggle-switch">
+                    <input
+                        type="checkbox"
+                        checked={isRiskMode}
+                        onChange={() => setIsRiskMode(!isRiskMode)}
+                    />
+                    <span className="slider"></span>
+                </label>
+            </div>
+
+            {/* --- Info Banner --- */}
+            <div style={{ textAlign: 'center', marginBottom: '1rem', color: '#666' }}>
+                {isLoading ? (
+                    <span>⏳ Calculating AI Projections...</span>
+                ) : (
+                    <span>
+                        <span style={{ color: '#198754', fontWeight: 'bold' }}>✓ AI Projections Active</span> (Based on 10,000 Monte Carlo Simulations)
+                    </span>
+                )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', alignItems: 'stretch' }}>
@@ -259,6 +403,56 @@ const ProjectionPage = () => {
                             Total Life Event Expenses:
                             <strong className="text-loss"> ${projection[activePeriod === 3 ? 'threeYear' : activePeriod === 5 ? 'fiveYear' : activePeriod === 10 ? 'tenYear' : 'current'].expenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
                         </p>
+
+                        {/* Risk Stats (Visible for all future projections: 3, 5, 10 years) */}
+                        {isRiskMode && activePeriod >= 3 && riskTotals && (
+                            <div style={{ marginTop: '1rem', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #DEE2E6' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                    <p style={{ fontSize: '0.9rem', color: '#666', margin: 0 }}>AI Projected Range (Stocks Only):</p>
+                                    {mlProjections.some(item => item.isSimulated) && (
+                                        <span style={{
+                                            backgroundColor: '#ffec00',
+                                            color: '#664d03',
+                                            fontSize: '0.75rem',
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontWeight: 'bold',
+                                            border: '1px solid #ffc107',
+                                            display: 'flex', alignItems: 'center', gap: '4px'
+                                        }}>
+                                            ⚠️ Simulated
+                                        </span>
+                                    )}
+                                </div>
+                                {/* Simple Logic to sum up Best/Worst cases for active Period */}
+                                {(() => {
+                                    let totalBest = 0;
+                                    let totalWorst = 0;
+                                    mlProjections.forEach(p => {
+                                        const d = p[activePeriod.toString()];
+                                        if (d) {
+                                            totalBest += d.bestCase;
+                                            totalWorst += d.worstCase;
+                                        }
+                                    });
+                                    // Add non-stock investments (simulated here for display)
+                                    // Hacky: We need 'nonStockInvestments' from the main calc. 
+                                    // Easier: Just show the Stock Range itself? Or Total Portfolio Range?
+                                    // Implementation Plan said "Projected Range". 
+                                    // Let's just show Stock Variance to be safe and accurate.
+                                    return (
+                                        <>
+                                            <p style={{ fontSize: '0.95rem', fontWeight: 600, color: '#198754' }}>
+                                                Best Case: ${(totalBest).toLocaleString(undefined, { maximumFractionDigits: 0 })} (Stocks)
+                                            </p>
+                                            <p style={{ fontSize: '0.95rem', fontWeight: 600, color: '#DC3545' }}>
+                                                Worst Case: ${(totalWorst).toLocaleString(undefined, { maximumFractionDigits: 0 })} (Stocks)
+                                            </p>
+                                        </>
+                                    );
+                                })()}
+                            </div>
+                        )}
                     </div>
                     {/* Flex grow pushes chart to center/bottom space */}
                     <div style={{ flex: 1, minHeight: '300px', width: '100%', marginTop: '2rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>

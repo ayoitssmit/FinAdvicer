@@ -480,6 +480,7 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
 
     const [formData, setFormData] = useState(initialFormState);
     const [mfMode, setMfMode] = useState('live'); // 'live' | 'sip'
+    const [validationError, setValidationError] = useState('');
 
     useEffect(() => {
         let dataToSet = { ...initialFormState };
@@ -518,6 +519,33 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+
+        // Validation: Prevent mutual funds in stocks section and vice versa
+        if (config.category === 'stocks' || config.category === 'mutualFunds') {
+            const symbolOrName = formData.name?.toUpperCase().trim();
+
+            if (!symbolOrName) {
+                setValidationError('Please enter a symbol or name');
+                return;
+            }
+
+            // Heuristic: Mutual funds typically have 5+ characters and often end with X
+            // ETFs/Stocks are typically 1-4 characters (SPY, QQQ, AAPL, MSFT)
+            const isMutualFundLike = symbolOrName.length >= 5 && symbolOrName.endsWith('X');
+            const isStockETFLike = symbolOrName.length <= 4 || !symbolOrName.endsWith('X');
+
+            if (config.category === 'stocks' && isMutualFundLike) {
+                setValidationError(`❌ Not a Stock/ETF. "${symbolOrName}" appears to be a Mutual Fund. Add it to the Mutual Funds section.`);
+                return;
+            }
+
+            if (config.category === 'mutualFunds' && isStockETFLike) {
+                setValidationError(`❌ Not a Mutual Fund. "${symbolOrName}" appears to be a Stock/ETF. Add it to the Stocks & ETFs section.`);
+                return;
+            }
+        }
+
+        setValidationError(''); // Clear error on success
         onSave(config.category, { ...config.item, ...formData });
         onClose();
     };
@@ -526,7 +554,7 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
         switch (config.category) {
             case 'stocks':
                 return <>
-                    <div className="input-group"><label>Stock Name (e.g. AAPL, NKE)</label><input type="text" name="name" value={formData.name} onChange={handleChange} /></div>
+                    <div className="input-group"><label>Stock/ETF Symbol (e.g. AAPL, SPY)</label><input type="text" name="name" value={formData.name} onChange={handleChange} /></div>
                     <div className="input-group"><label>Quantity</label><input type="number" name="quantity" value={formData.quantity} onChange={handleChange} /></div>
                     <div className="input-group"><label>Purchase Price ($)</label><input type="number" name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} /></div>
                 </>;
@@ -538,7 +566,7 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
                 </>;
             case 'mutualFunds':
                 return <>
-                    <div className="input-group"><label>Fund Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} /></div>
+                    <div className="input-group"><label>Mutual Fund Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} /></div>
 
                     {/* Mode Toggle */}
                     <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', padding: '10px 0', borderBottom: '1px solid #333' }}>
@@ -632,6 +660,19 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={e => e.stopPropagation()}>
                 <h2 className="modal-title">{config.mode === 'edit' ? 'Edit' : 'Add New'} {categoryLabel} Item</h2>
+                {validationError && (
+                    <div style={{
+                        color: '#ff4444',
+                        backgroundColor: 'rgba(255, 68, 68, 0.1)',
+                        padding: '10px',
+                        borderRadius: '4px',
+                        marginBottom: '15px',
+                        fontSize: '0.9rem',
+                        border: '1px solid rgba(255, 68, 68, 0.3)'
+                    }}>
+                        {validationError}
+                    </div>
+                )}
                 <form onSubmit={handleSubmit} className="modal-form">
                     {renderFields()}
                     <div className="modal-actions">
@@ -692,7 +733,7 @@ const calculateInsuranceTotal = (item) => {
 // --- Data Definitions ---
 const categories = {
     investment: [
-        { id: 'stocks', label: 'Stock' }, { id: 'properties', label: 'Properties' },
+        { id: 'stocks', label: 'Stocks & ETFs' }, { id: 'properties', label: 'Properties' },
         { id: 'mutualFunds', label: 'Mutual Funds' }, { id: 'fd', label: 'FD (Bank)' },
         { id: 'gold', label: 'Gold' }, { id: 'silver', label: 'Silver' },
         { id: 'postRetirement', label: 'Post-retirement Living' },
@@ -1046,7 +1087,7 @@ export default function DashboardPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span className="item-name">{item.name} ({item.quantity} units)</span>
-                            <span style={{ fontWeight: '600' }}>LTP ${item.currentPrice}</span>
+                            <span style={{ fontWeight: '600' }}>LTP ${item.currentPrice.toFixed(2)}</span>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.9rem' }}>
                             <div style={{ display: 'flex', gap: '15px' }}>

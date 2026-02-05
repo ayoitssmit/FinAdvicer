@@ -192,4 +192,65 @@ router.delete('/:id', verifyToken, async (req, res) => {
     }
 });
 
+import axios from 'axios';
+
+// Helper to fetch/simulate historical prices (REMOVED: Now handled by ML Service)
+/* 
+    Historical fetching has been moved to Python ML Service using yfinance.
+    This keeps the Node backend lighter and uses a free, robust data source.
+*/
+
+// @route   POST /api/financial/projection
+// @desc    Get ML-based projections for stocks
+// @access  Private
+router.post('/projection', verifyToken, async (req, res) => {
+    try {
+        // 1. Get user stocks
+        const stocks = await Stock.find({ user: req.userId }).lean();
+
+        if (!stocks.length) {
+            return res.json({ stocks: [] });
+        }
+
+        const projections = [];
+        const ML_SERVICE_URL = 'http://127.0.0.1:8000/project';
+
+        // 2. Process each stock
+        for (const stock of stocks) {
+            const symbol = stock.symbol || stock.name; // Fallback
+
+            // 3. Call ML Service directly (History fetched by Python now)
+            try {
+                const mlResponse = await axios.post(ML_SERVICE_URL, {
+                    assetClass: "stock",
+                    symbol: symbol,
+                    investedAmount: stock.quantity * stock.purchasePrice,
+                });
+
+                projections.push({
+                    symbol,
+                    ...mlResponse.data.projection,
+                    params: mlResponse.data.params,
+                    isSimulated: mlResponse.data.isSimulated
+                });
+
+            } catch (err) {
+                console.error(`ML Service failed for ${symbol}:`, err.message);
+                // Fallback if ML service is down
+                projections.push({
+                    symbol,
+                    error: "ML Service Unavailable",
+                    isSimulated: true
+                });
+            }
+        }
+
+        res.json({ projections });
+
+    } catch (error) {
+        console.error('Error generating projection:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
 export default router;

@@ -84,3 +84,11 @@ FinAdvicer is a comprehensive full-stack web application designed for personal p
 
 ## License
 This software is provided for educational and personal use.
+
+## How to Run (Full Stack)
+See [STARTUP_GUIDE.md](STARTUP_GUIDE.md) for detailed instructions.
+
+**Quick Summary:**
+1.  **Backend**: `cd server` -> `npm run dev`
+2.  **AI Service**: `cd ml_service` -> `.\start_ml.bat`
+3.  **Frontend**: `cd src` -> `npm run dev`

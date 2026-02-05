@@ -1,0 +1,6 @@
+@echo off
+echo Installing Dependencies...
+pip install -r requirements.txt
+
+echo Starting ML Service...
+python -m uvicorn main:app --reload --port 8000

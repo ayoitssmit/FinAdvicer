@@ -13,20 +13,17 @@ const router = express.Router();
 // Helper to getting price or fallback
 const getPrice = async (symbol, basePrice) => {
     try {
-        const apiKey = process.env.FINNHUB_API_KEY;
-        // Try OANDA pair for Forex/Commodity on Finnhub
-        const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=OANDA:${symbol}_USD&token=${apiKey}`);
+        const ML_SERVICE_URL = 'http://127.0.0.1:8000/price';
+        // Map common names to Yahoo Tickers
+        const ticker = symbol === 'XAU' ? 'GC=F' : (symbol === 'XAG' ? 'SI=F' : symbol);
 
-        if (response.data && response.data.c > 0) {
+        const response = await axios.get(`${ML_SERVICE_URL}/${ticker}`);
+
+        if (response.data && response.data.c) {
             return response.data.c;
         }
     } catch (error) {
-        if (error.response && error.response.status === 403) {
-            // Expected for Free Tier on Commodities/Forex
-            console.log(`API Access Restricted for ${symbol} (Free Tier). Switching to Simulated Live Price.`);
-        } else {
-            console.error(`API Error for ${symbol}:`, error.message);
-        }
+        console.error(`ML Service Error for ${symbol}:`, error.message);
     }
 
     // Fallback: Return simulated live price (Base + random fluctuation)

@@ -10,23 +10,13 @@ const router = express.Router();
 router.get('/:symbol', auth, async (req, res) => {
     try {
         const { symbol } = req.params;
-        const apiKey = process.env.FINNHUB_API_KEY;
+        const ML_SERVICE_URL = 'http://127.0.0.1:8000/price';
 
-        if (!apiKey) {
-            return res.status(500).json({ error: 'Finnhub API key not configured' });
-        }
+        // Call Python Service (yfinance)
+        const response = await axios.get(`${ML_SERVICE_URL}/${symbol}`);
 
-        const response = await axios.get(`https://finnhub.io/api/v1/quote?symbol=${symbol.toUpperCase()}&token=${apiKey}`);
-
-        // Finnhub returns { c: current, h: high, l: low, o: open, pc: previous close, ... }
-        const data = response.data;
-
-        // Check if Finnhub returned a "0" price (invalid symbol or no data)
-        if (data.c === 0 && data.pc === 0) {
-            throw new Error("No data returned or symbol invalid on free tier");
-        }
-
-        res.json(data);
+        // Response format is already compatible { c: price, pc: prevClose }
+        res.json(response.data);
     } catch (error) {
         const { symbol } = req.params;
 
