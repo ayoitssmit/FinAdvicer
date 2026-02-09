@@ -1,94 +1,81 @@
-# FinAdvicer - Personal Finance Dashboard
+# FinAdvicer - Intelligent Financial Planning Platform
 
-FinAdvicer is a comprehensive full-stack web application designed for personal portfolio management. It facilitates the tracking of diverse financial assets, including realtime stock market data, mutual funds, real estate, and commodities, while also providing tools for long-term financial planning and liability management.
+FinAdvicer is a comprehensive full-stack wealth management application designed for personal portfolio tracking and long-term financial projection. It integrates real-time market data with advanced Monte Carlo simulations to provide users with probabilistic forecasting of their net worth, accounting for inflation, life events, and market volatility.
 
-## Key Features
+## Core Capabilities
 
-### Live Market Tracking
-*   **Equities**: Real-time price tracking for global stocks via the Finnhub API.
-*   **Mutual Funds**:
-    *   **Dual Mode Functionality**: Supports both direct Live Tracking (via Ticker Symbols) and SIP Calculation (Systematic Investment Plan) for projection analysis.
-    *   **Resilient Data Pipeline**: Implements an automated fallback mechanism to simulated data models in events of API rate limiting or access restrictions, ensuring service continuity.
-*   **Commodities**: Real-time tracking for Gold and Silver markets (USD/oz).
+### 1. Intelligent Portfolio Tracking
+*   **Live Market Data**: Real-time price aggregation for Global Stocks, ETFs, Mutual Funds, and Commodities (Gold/Silver) using the Yahoo Finance API (via Python Microservice).
+*   **Asset Management**: Centralized dashboard for managing diverse assets including Real Estate, Fixed Deposits, and custom investments.
+*   **Resilient Data Pipeline**: Automated fallback mechanisms ensure data availability even during API bottlenecks.
 
-### Asset Management
-*   **Real Estate**: Property value tracking with automated compound annual growth rate (CAGR) calculations.
-*   **Fixed Income**: Management of Fixed Deposits with maturity value computation based on interest rates and tenure.
+### 2. Advanced AI Projections
+*   **Monte Carlo Simulations**: The platform utilizes a dedicated Python ML service to run 10,000 simulations per asset using Geometric Brownian Motion (GBM). This provides a 90% confidence interval (Best, Worst, and Expected case scenarios) for future wealth growth.
+*   **Inflation-Adjusted Forecasting**: Financial goals and expenses are projected using variable inflation rates (e.g., higher inflation for Education/Healthcare vs. general lifestyle expenses).
 
-### Financial Planning
-*   **Goal Tracking**: Dedicated modules for major life events such as Marriage, Education, and Retirement planning.
-*   **Liability Management**: Tracking of active loans and insurance premium schedules.
-*   **Net Worth Analysis**: Real-time aggregation of total assets against liabilities to provide a current Net Worth snapshot.
+### 3. Strategic Financial Planning
+*   **Smart Insurance Analysis**: Logic to differentiate between Term Life (finite premium term) and Health Insurance (inflation-linked premiums), preventing the overestimation of long-term liabilities.
+*   **Life Event Modeling**: Time-specific deduction of major expenses (e.g., Social Gatherings, Education) to ensure liquidity analysis is accurate for specific future years.
+*   **Net Worth visualization**: Interactive charts (Recharts) visualizing current vs. projected net worth with dynamic risk toggles.
 
 ---
 
 ## Technical Architecture
 
-*   **Frontend**: React.js (Vite) utilizing Recharts for data visualization and CSS Modules for scoped styling.
-*   **Backend**: Node.js and Express.js REST API.
-*   **Database**: MongoDB with Mongoose ODM.
-    *   **Architecture**: Micro-collection design pattern (distinct collections for Stocks, MutualFunds, Properties, etc.) to enhance query performance and schema scalability.
-*   **Authentication**: JSON Web Token (JWT) implementation for secure session management.
-*   **External Integration**: Finnhub.io API for financial market data.
+The application follows a Service-Oriented Architecture (SOA) separating the core logic from the computation-heavy data science layer.
+
+*   **Frontend**: React.js (Vite) for a responsive, dark-themed user interface.
+*   **Backend**: Node.js & Express.js for RESTful API management and secure data persistence.
+*   **Database**: MongoDB (Mongoose ODM) with schemas optimized for time-series financial data.
+*   **ML Service**: Python (FastAPI) microservice handling:
+    *   `yfinance` for historical market data.
+    *   `NumPy`/`Pandas` for vectorised Monte Carlo simulations.
+    *   `Scikit-learn` for predictive modeling foundation.
 
 ---
 
-## Installation and Setup
+## Installation & Deployment
 
 ### Prerequisites
-*   Node.js (v14+)
-*   MongoDB (Local instance or Atlas URI)
-*   Finnhub API Key
+*   Node.js (v16+)
+*   Python (v3.9+)
+*   MongoDB (Local or Atlas)
 
-### Deployment Steps
+### 1. Repository Setup
+```bash
+git clone <repository-url>
+cd FinAdvicer
+```
 
-1.  **Repository Setup**
-    ```bash
-    git clone <repository-url>
-    cd FinAdvicer
-    ```
+### 2. Backend (Node.js)
+Navigate to the server directory, install dependencies, and start the API.
+```bash
+cd server
+npm install
+# Ensure .env contains PORT, MONGO_URI, and JWT_SECRET
+npm run dev
+```
 
-2.  **Backend Configuration**
-    Navigate to the server directory and install dependencies.
-    ```bash
-    cd server
-    npm install
-    ```
-    Create a `.env` file in the `server` directory with the following variables:
-    ```env
-    PORT=5000
-    MONGO_URI=mongodb://localhost:27017/finadvicer
-    JWT_SECRET=your_secure_secret_key
-    FINNHUB_API_KEY=your_finnhub_api_key
-    ```
-    Start the backend server:
-    ```bash
-    npm run dev
-    ```
+### 3. ML Service (Python)
+Navigate to the ML service directory and install requirements.
+```bash
+cd ml_service
+pip install -r requirements.txt
+python main.py
+# Reference: See start_ml.bat for Windows automation
+```
 
-3.  **Frontend Configuration**
-    Open a new terminal window, navigate to the source directory, and install dependencies.
-    ```bash
-    cd src
-    npm install
-    ```
-    Start the client application:
-    ```bash
-    npm run dev
-    ```
+### 4. Frontend (React)
+Navigate to the source directory and launch the client.
+```bash
+cd src
+npm install
+npm run dev
+```
 
-4.  **Access**
-    The application will be accessible at standard localhost port (default: `http://localhost:5173`).
+The application will be accessible at `http://localhost:5173`.
 
 ---
 
 ## License
-This software is provided for educational and personal use.
-
-## How to Run (Full Stack)
-See [STARTUP_GUIDE.md](STARTUP_GUIDE.md) for detailed instructions.
-
-**Quick Summary:**
-1.  **Backend**: `cd server` -> `npm run dev`
-2.  **AI Service**: `cd ml_service` -> `.\start_ml.bat`
-3.  **Frontend**: `cd src` -> `npm run dev`
+This project is licensed for personal and educational use.
