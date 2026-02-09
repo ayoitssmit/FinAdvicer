@@ -38,11 +38,25 @@ const Navbar = () => {
                 </Link>
                 <div className="navbar-links">
                     <a
+                        href="#engine"
+                        onClick={(e) => handleScroll(e, 'engine')}
+                        className="navbar-link"
+                    >
+                        Engine
+                    </a>
+                    <a
+                        href="#workflow"
+                        onClick={(e) => handleScroll(e, 'workflow')}
+                        className="navbar-link"
+                    >
+                        Workflow
+                    </a>
+                    <a
                         href="#about"
                         onClick={(e) => handleScroll(e, 'about')}
                         className="navbar-link"
                     >
-                        About
+                        Methodology
                     </a>
                     <a
                         href="#contact"

@@ -7,6 +7,7 @@ import pandas as pd
 # import pickle
 import yfinance as yf
 from monte_carlo import run_simulation
+from cache import cache
 
 app = FastAPI()
 
@@ -14,15 +15,15 @@ app = FastAPI()
 def read_root():
     return {"status": "ML Service Operational"}
 
-# --- 1. Data Contract (Step 1) ---
-
-# ... (Previous code)
-
 # --- 1. Data Contract (Strict Schema) ---
 class AssetProjectionInput(BaseModel):
     assetClass: Literal["stock", "mutual_fund", "gold", "silver"]
     symbol: str
     investedAmount: float
+    peRatio: Optional[float] = 0.0
+    eps: Optional[float] = 0.0
+    roe: Optional[float] = 0.0
+    debtToEquity: Optional[float] = 0.0
 
 class ProjectionMetrics(BaseModel):
     expectedValue: float
@@ -68,9 +69,22 @@ def get_price(symbol: str):
         # Return 404 so backend handles fallback
         raise HTTPException(status_code=404, detail="Price not found")
 
-from cache import cache
-
-# ... (Imports)
+@app.get("/fundamentals/{symbol}")
+def get_fundamentals(symbol: str):
+    try:
+        ticker = yf.Ticker(symbol)
+        info = ticker.info
+        
+        return {
+            "symbol": symbol,
+            "peRatio": info.get('trailingPE', 0),
+            "eps": info.get('trailingEps', 0),
+            "roe": info.get('returnOnEquity', 0),
+            "debtToEquity": info.get('debtToEquity', 0)
+        }
+    except Exception as e:
+        print(f"Error fetching fundamentals for {symbol}: {e}")
+        return {}
 
 @app.post("/project", response_model=FullProjectionResponse)
 def project_asset(data: AssetProjectionInput):
@@ -101,7 +115,7 @@ def project_asset(data: AssetProjectionInput):
     try:
         # 2. Check Parameter Cache (Avoid yfinance)
         # Key: asset:stock:{symbol}:params
-        param_key = f"asset:{data.assetClass}:{data.symbol}:params"
+        param_key = f"asset:{data.assetClass}:{data.symbol}:params:v3" # Force refresh for new logic
         cached_params = cache.get(param_key)
         
         fetched_params = False
@@ -130,6 +144,44 @@ def project_asset(data: AssetProjectionInput):
                             mu = float(np.clip(mu, 0.02, 0.10))      # Max 10% growth
                             sigma = float(np.clip(sigma, 0.05, 0.25)) # Max 25% volatility
                         
+
+                        # --- Fundamental Analysis Adjustment (Phase 8 - Enhanced) ---
+                        if data.assetClass == "stock":
+                            # 1. Quality Factor (ROE - Return on Equity)
+                            # High ROE indicates efficiency -> Boost expected return
+                            if data.roe:
+                                if data.roe > 0.25:
+                                    mu += 0.05  # Massive boost for elite efficiency
+                                elif data.roe > 0.15:
+                                    mu += 0.03  # Strong boost
+                                elif data.roe < 0.05 and data.roe > 0:
+                                    mu -= 0.02  # Penalty for inefficiency
+                            
+                            # 2. Valuation Factor (P/E Ratio)
+                            # High P/E -> Higher volatility (growth expectations) but potential drag
+                            if data.peRatio:
+                                if data.peRatio > 80:
+                                    sigma += 0.20 # Extreme volatility risk
+                                    mu -= 0.03    # Valuation drag
+                                elif data.peRatio > 50:
+                                    sigma += 0.10 # High volatility
+                                elif data.peRatio < 15 and data.peRatio > 0:
+                                    mu += 0.01    # Value premium
+                            
+                            # 3. Leverage Factor (Debt/Equity)
+                            # High Debt -> Higher risk of bankruptcy/distress -> Higher Volatility
+                            if data.debtToEquity:
+                                if data.debtToEquity > 3.0:
+                                    sigma += 0.15 # Extreme leverage risk
+                                elif data.debtToEquity > 1.5:
+                                    sigma += 0.08 # Moderate leverage risk
+                                elif data.debtToEquity < 0.5:
+                                    sigma -= 0.02 # Stability bonus
+                                
+                            # Cap adjustments to stay within sane bounds
+                            mu = float(np.clip(mu, -0.05, 0.25))
+                            sigma = float(np.clip(sigma, 0.10, 0.60))
+                        
                         # Cache Parameters (7 Days)
                         cache.set(param_key, {"mu": mu, "sigma": sigma}, 7 * 24 * 60 * 60)
                     else:
@@ -154,11 +206,15 @@ def project_asset(data: AssetProjectionInput):
     except Exception as e:
         print(f"CRITICAL ERROR in project endpoint: {e}")
         is_simulated = True
-        simulation_results = {
-            "3": {"expectedValue": data.investedAmount * 1.18, "bestCase": data.investedAmount * 1.3, "worstCase": data.investedAmount * 1.0},
-            "5": {"expectedValue": data.investedAmount * 1.33, "bestCase": data.investedAmount * 1.5, "worstCase": data.investedAmount * 1.1},
-            "10": {"expectedValue": data.investedAmount * 1.79, "bestCase": data.investedAmount * 2.0, "worstCase": data.investedAmount * 1.2}
-        }
+        simulation_results = {}
+        # Fallback for years 1 to 10 (conservative 5% growth)
+        for year in range(1, 11):
+            factor = (1.05) ** year
+            simulation_results[str(year)] = {
+                "expectedValue": data.investedAmount*factor,
+                "bestCase": data.investedAmount*(factor*1.1),
+                "worstCase": data.investedAmount*(factor*0.9)
+            }
 
     # Sanitize inputs (as before)
     def safe_float(val, default=0.0):

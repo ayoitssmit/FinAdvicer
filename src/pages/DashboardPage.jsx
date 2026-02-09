@@ -449,6 +449,29 @@ const DashboardStyles = () => (
         color: white;
         font-weight: 600;
     }
+
+    /* --- Metric Badges (Phase 8) --- */
+    .metric-badge {
+        font-size: 0.75rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background-color: #e9ecef;
+        color: var(--text-secondary);
+        margin-right: 4px;
+        display: inline-flex;
+        align-items: center;
+        font-weight: 500;
+    }
+    .metric-badge.good {
+        background-color: rgba(25, 135, 84, 0.1);
+        color: var(--profit-green);
+        border: 1px solid rgba(25, 135, 84, 0.2);
+    }
+    .metric-badge.bad {
+        background-color: rgba(220, 53, 69, 0.1);
+        color: var(--loss-red);
+        border: 1px solid rgba(220, 53, 69, 0.2);
+    }
   `}</style>
 );
 
@@ -851,6 +874,8 @@ export default function DashboardPage() {
                 ...(financialData.mutualFunds || []).filter(mf => mf.symbol)
             ];
 
+            const missingFundamentals = [];
+
             if (itemsToFetch.length > 0) {
                 const stockPromises = itemsToFetch.map(item =>
                     fetch(`/api/stocks/${item.symbol || item.name}`, { // Fallback to name if symbol missing (for old stocks)
@@ -861,11 +886,19 @@ export default function DashboardPage() {
                             // Store by Symbol if available, else Name
                             const key = item.symbol || item.name;
                             priceUpdates.stocks[key] = { price: data.c, prevClose: data.pc };
+
+                            // Self-Healing: Check if fundamentals are missing for Stocks
+                            // If missing, queue a background update
+                            if (financialData.stocks.find(s => s.id === item.id) && (!item.peRatio && !item.roe)) {
+                                missingFundamentals.push(item);
+                            }
                         })
                         .catch((err) => console.error(`Failed to fetch ${item.symbol || item.name}`, err))
                 );
                 promises.push(...stockPromises);
             }
+
+            // ... (Gold/Silver logic remains same) ...
 
             // 2. Fetch Gold Price (if any gold items exist)
             if (financialData.gold && financialData.gold.length > 0) {
@@ -874,8 +907,6 @@ export default function DashboardPage() {
                 })
                     .then(res => res.ok ? res.json() : Promise.reject())
                     .then(data => {
-                        // API returns price_per_ounce_usd
-                        // Store directly as currentValue (since quantity is now in Ounces)
                         priceUpdates.gold = data.price_per_ounce_usd;
                     })
                     .catch(err => console.error("Failed to fetch Gold price", err));
@@ -896,6 +927,29 @@ export default function DashboardPage() {
             }
 
             await Promise.all(promises);
+
+            // Trigger Background Fundamental Updates (Self-Healing)
+            if (missingFundamentals.length > 0) {
+                missingFundamentals.forEach(async (item) => {
+                    try {
+                        const res = await fetch(`/api/financial/${item.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                            body: JSON.stringify({ manualRefresh: true }) // Trigger backend fetch
+                        });
+                        if (res.ok) {
+                            const updatedItem = await res.json();
+                            // Update state with new fundamentals immediately
+                            setFinancialData(prev => ({
+                                ...prev,
+                                stocks: prev.stocks.map(s => s.id === updatedItem.id ? { ...s, ...updatedItem } : s)
+                            }));
+                        }
+                    } catch (e) {
+                        console.warn("Background fundamental update failed", e);
+                    }
+                });
+            }
 
             setFinancialData(prevData => {
                 const newData = JSON.parse(JSON.stringify(prevData));
@@ -1143,6 +1197,7 @@ export default function DashboardPage() {
                                 </span>
                             )}
                         </div>
+                        {/* Phase 8: Fundamentals Hidden (Used for ML only) */}
                     </div>
                 );
             case 'properties': currentValue = calculatePropertyValue(item); profitLoss = currentValue - item.purchasePrice; isItemProfit = profitLoss >= 0;

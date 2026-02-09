@@ -107,6 +107,24 @@ router.post('/', verifyToken, async (req, res) => {
             ...itemData
         });
 
+        // --- Auto-Fetch Fundamentals for Stocks (Phase 8) ---
+        if (type === 'stocks' && newItem.symbol) {
+            try {
+                const ML_SERVICE_URL = 'http://127.0.0.1:8000'; // Make sure this matches your env
+                const fundResponse = await axios.get(`${ML_SERVICE_URL}/fundamentals/${newItem.symbol}`);
+
+                if (fundResponse.data) {
+                    newItem.peRatio = fundResponse.data.peRatio || 0;
+                    newItem.eps = fundResponse.data.eps || 0;
+                    newItem.roe = fundResponse.data.roe || 0;
+                    newItem.debtToEquity = fundResponse.data.debtToEquity || 0;
+                }
+            } catch (err) {
+                console.warn(`[Warning] Could not fetch fundamentals for ${newItem.symbol}: ${err.message}`);
+                // Proceed without crashing, just save default 0s
+            }
+        }
+
         const savedItem = await newItem.save();
         const { _id, __v, ...rest } = savedItem.toObject();
 
@@ -135,6 +153,28 @@ router.put('/:id', verifyToken, async (req, res) => {
         const Model = getModelByType(type);
         if (!Model) {
             return res.status(400).json({ error: 'Invalid Item Type' });
+        }
+
+        // --- Auto-Fetch Fundamentals for Stocks (Phase 8) ---
+        if (type === 'stocks' && (updates.symbol || updates.manualRefresh)) {
+            try {
+                // If symbol changed, or if we triggered a manual refresh
+                const symbolToFetch = updates.symbol || (await Model.findById(id)).symbol;
+
+                if (symbolToFetch) {
+                    const ML_SERVICE_URL = 'http://127.0.0.1:8000';
+                    const fundResponse = await axios.get(`${ML_SERVICE_URL}/fundamentals/${symbolToFetch}`);
+
+                    if (fundResponse.data) {
+                        updates.peRatio = fundResponse.data.peRatio || 0;
+                        updates.eps = fundResponse.data.eps || 0;
+                        updates.roe = fundResponse.data.roe || 0;
+                        updates.debtToEquity = fundResponse.data.debtToEquity || 0;
+                    }
+                }
+            } catch (err) {
+                console.warn(`[Warning] Could not fetch fundamentals on update: ${err.message}`);
+            }
         }
 
         const updatedItem = await Model.findOneAndUpdate(
@@ -256,6 +296,11 @@ router.post('/projection', verifyToken, async (req, res) => {
                     assetClass: asset.assetClass,
                     symbol: symbol,
                     investedAmount: startValue,
+                    // Pass stored fundamentals (or 0 if missing)
+                    peRatio: asset.peRatio || 0,
+                    eps: asset.eps || 0,
+                    roe: asset.roe || 0,
+                    debtToEquity: asset.debtToEquity || 0
                 };
 
                 // Guardrail: Validate Contract

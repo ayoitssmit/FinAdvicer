@@ -1,76 +1,79 @@
 .navbar {
-    background-color: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(10px);
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
     height: 80px;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 1.1rem;
+    font-size: 1rem;
     position: sticky;
     top: 0;
-    z-index: 999;
-    border-bottom: 1px solid var(--border-color);
-    font-family: var(--font-family-body);
+    z-index: 1000;
+    border-bottom: 1px solid #e2e8f0;
+    font-family: 'Lato', sans-serif;
 }
 
 .navbar-container {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    height: 80px;
+    height: 100%;
     width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px;
 }
 
 .navbar-logo {
-    color: var(--text-color);
+    color: #0f172a;
     justify-self: start;
     cursor: pointer;
     text-decoration: none;
-    font-size: 2.2rem;
+    font-size: 1.8rem;
+    /* Larger */
     font-weight: 700;
     display: flex;
     align-items: center;
-    font-family: var(--font-family-headings);
+    letter-spacing: 0;
+    font-family: 'Playfair Display', serif;
+    /* Restored Font */
 }
 
 .navbar-links {
     display: flex;
-    gap: 2.5rem;
+    gap: 2rem;
+    list-style: none;
 }
 
 .navbar-link {
-    color: var(--subtle-text-color);
+    color: #64748b;
     text-decoration: none;
-    font-weight: 700;
-    padding-bottom: 5px;
-    /* Space for the underline */
+    font-weight: 600;
+    font-size: 0.95rem;
+    padding: 8px 0;
     position: relative;
-    /* Required for positioning the pseudo-element */
-    transition: color 0.3s ease;
+    transition: color 0.2s ease;
 }
 
 .navbar-link:hover {
-    color: var(--primary-color);
-    /* Change text color on hover */
+    color: #0f172a;
 }
 
-/* The animated underline */
+/* The animated underline - Gold */
 .navbar-link::after {
     content: '';
     position: absolute;
     width: 100%;
     transform: scaleX(0);
-    /* Initially, the underline has no width */
     height: 2px;
     bottom: 0;
     left: 0;
-    background-color: var(--primary-color);
+    background-color: #B6955E;
+    /* Gold */
     transform-origin: bottom right;
-    transition: transform 0.3s ease-out;
-    /* Smooth transition for the animation */
+    transition: transform 0.25s ease-out;
 }
 
-/* On hover, the underline scales to full width */
 .navbar-link:hover::after {
     transform: scaleX(1);
     transform-origin: bottom left;
@@ -79,4 +82,44 @@
 .navbar-auth {
     display: flex;
     gap: 1rem;
+    align-items: center;
+}
+
+/* Auth Buttons in Nav */
+.navbar-auth .btn {
+    padding: 8px 20px;
+    font-size: 0.9rem;
+    border-radius: 6px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.navbar-auth .btn-secondary {
+    color: #475569;
+    background: transparent;
+}
+
+.navbar-auth .btn-secondary:hover {
+    color: #0f172a;
+}
+
+.navbar-auth .btn-primary {
+    background-color: #0f172a;
+    /* Keep Nav button dark or Gold? Usually sign up mimics Hero, but let's keep it distinct if needed. User asked to revert "Sign up button", likely referring to Hero. But let's check index.css defaults. Default btn-primary was Gold. So I'll make this Gold too. */
+    background-color: #B6955E;
+    color: white;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.1);
+}
+
+.navbar-auth .btn-primary:hover {
+    background-color: #a3824d;
+    transform: translateY(-1px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .navbar-links {
+        display: none;
+    }
 }

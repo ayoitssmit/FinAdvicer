@@ -1,7 +1,22 @@
 .footer {
-    background-color: var(--card-color);
-    color: var(--subtle-text-color);
-    text-align: center;
-    padding: 2rem 0;
-    border-top: 1px solid var(--border-color);
+    background-color: #f8fafc;
+    /* Matches Contact section bg or creates seamless end */
+    padding: 30px 0;
+    border-top: 1px solid #e2e8f0;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.footer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Ensure responsiveness matches Contact section footer */
+@media (max-width: 768px) {
+    .footer-content {
+        flex-direction: column;
+        gap: 10px;
+    }
 }

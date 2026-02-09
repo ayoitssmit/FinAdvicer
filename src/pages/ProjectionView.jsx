@@ -357,7 +357,7 @@ const ProjectionPage = () => {
 
 
     return (
-        <div style={{ padding: '2rem 3rem', backgroundColor: '#F8F9FA', minHeight: '100vh' }}>
+        <div style={{ padding: '1.5rem 2rem', backgroundColor: '#F8F9FA', minHeight: '100vh' }}>
             {/* --- ADDED: Styles for buttons and variables --- */}
             <style>{`
                 :root {
@@ -381,11 +381,12 @@ const ProjectionPage = () => {
                     background: none;
                     border: 1px solid var(--border-color);
                     color: var(--text-secondary);
-                    padding: 6px 12px;
+                    padding: 4px 10px;
                     border-radius: 6px;
                     cursor: pointer;
                     font-weight: 600;
                     transition: all 0.2s ease;
+                    font-size: 0.9rem;
                 }
                 .sign-out-button:hover {
                     background-color: var(--accent-gold);
@@ -398,23 +399,23 @@ const ProjectionPage = () => {
                   display: flex;
                   justify-content: center;
                   background-color: #e9ecef;
-                  border-radius: 12px;
-                  padding: 6px;
+                  border-radius: 10px;
+                  padding: 4px;
                   border: 1px solid var(--border-color);
-                  max-width: 900px;
-                  margin: 2rem auto;
+                  max-width: 650px;
+                  margin: 1.5rem auto;
                   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
                 }
 
                 .category-button {
                   background-color: transparent;
                   border: none;
-                  padding: 12px 16px;
-                  font-size: 1rem;
+                  padding: 8px 12px;
+                  font-size: 0.9rem;
                   font-weight: 600;
                   color: var(--text-secondary);
                   cursor: pointer;
-                  border-radius: 8px;
+                  border-radius: 7px;
                   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
                   flex: 1;
                   text-align: center;
@@ -429,7 +430,7 @@ const ProjectionPage = () => {
                 .category-button.active {
                   background-color: var(--accent-gold);
                   color: white;
-                  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+                  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
                   transform: translateY(-1px);
                 }
                 
@@ -437,15 +438,16 @@ const ProjectionPage = () => {
                 .risk-toggle-container {
                     display: flex;
                     justify-content: center;
-                    margin-bottom: 2rem;
+                    margin-bottom: 1.5rem;
                     align-items: center;
-                    gap: 12px;
+                    gap: 10px;
+                    font-size: 0.9rem;
                 }
                 .toggle-switch {
                     position: relative;
                     display: inline-block;
-                    width: 50px;
-                    height: 24px;
+                    width: 40px;
+                    height: 20px;
                 }
                 .toggle-switch input {
                     opacity: 0;
@@ -466,10 +468,10 @@ const ProjectionPage = () => {
                 .slider:before {
                     position: absolute;
                     content: "";
-                    height: 16px;
-                    width: 16px;
-                    left: 4px;
-                    bottom: 4px;
+                    height: 14px;
+                    width: 14px;
+                    left: 3px;
+                    bottom: 3px;
                     background-color: white;
                     transition: .4s;
                     border-radius: 50%;
@@ -478,12 +480,12 @@ const ProjectionPage = () => {
                     background-color: var(--accent-gold);
                 }
                 input:checked + .slider:before {
-                    transform: translateX(26px);
+                    transform: translateX(20px);
                 }
             `}</style>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
-                <h1>Projected Growth</h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
+                <h1 style={{ fontSize: '1.5rem', margin: 0 }}>Projected Growth</h1>
                 <Link to="/dashboard" className="sign-out-button" style={{ textDecoration: 'none' }}>Back to Dashboard</Link>
             </div>
 
@@ -510,35 +512,22 @@ const ProjectionPage = () => {
 
             {/* --- Info Banner (Removed as per user request) --- */}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', alignItems: 'stretch' }}>
-                <div className="item-list-container" style={{ padding: '1.5rem', minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
-                    <h3 style={{ marginBottom: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', alignItems: 'stretch' }}>
+                <div className="item-list-container" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column' }}>
+                    <h3 style={{ marginBottom: '0.75rem', fontSize: '1.1rem' }}>
                         {activePeriod === 0 ? 'Current' : `${activePeriod}-Year`} Financial Summary
                     </h3>
-                    <div style={{ fontSize: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ fontSize: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                         <p>
                             Most Probable Value:
                             <strong className="text-profit"> ${projection[activePeriod === 3 ? 'threeYear' : activePeriod === 5 ? 'fiveYear' : activePeriod === 10 ? 'tenYear' : 'current'].investments.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
                         </p>
 
-                        {/* Risk Stats (Best/Worst) - Now consistent list items without box */}
+                        {/* Risk Stats (Best/Worst) */}
                         {isRiskMode && activePeriod >= 3 && riskTotals && (
                             <>
                                 {(() => {
-                                    let totalBest = 0;
-                                    let totalWorst = 0;
-                                    mlProjections.forEach(p => {
-                                        const d = p[activePeriod.toString()];
-                                        if (d) {
-                                            totalBest += d.bestCase;
-                                            totalWorst += d.worstCase;
-                                        }
-                                    });
-                                    // Add non-stock investments
-                                    // We need to fetch the non-stock component from the riskTotals calculation in useMemo 
-                                    // But riskTotals returns the FINAL sum (non-stock + stock best/worst)
-                                    // So we can just use riskTotals.best and riskTotals.worst directly!
-
+                                    // Use calculated risk totals directly
                                     return (
                                         <>
                                             <p>
@@ -560,47 +549,49 @@ const ProjectionPage = () => {
 
                     </div>
                     {/* Flex grow pushes chart to center/bottom space */}
-                    <div style={{ flex: 1, minHeight: '300px', width: '100%', marginTop: '2rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <div style={{ flex: 1, minHeight: '220px', width: '100%', marginTop: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                         <Pie data={{ ...projection.pie, datasets: [{ ...projection.pie.datasets[0], ...pieDatasetConfig }] }} options={{ ...pieOptions, maintainAspectRatio: false }} />
                     </div>
                 </div>
 
                 {activePeriod > 0 && projection.lineData && (
-                    <div className="item-list-container" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
-                        <h3 style={{ marginBottom: '1rem' }}>
+                    <div className="item-list-container" style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column' }}>
+                        <h3 style={{ marginBottom: '0.75rem', fontSize: '1.1rem' }}>
                             Investment Growth Over {activePeriod} Years
                         </h3>
-                        <div style={{ flex: 1, minHeight: '600px', position: 'relative' }}>
+                        <div style={{ flex: 1, minHeight: '400px', position: 'relative' }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart
                                     data={projection.lineData}
-                                    margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                                    margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                                 >
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
-                                    <XAxis dataKey="name" stroke="#6C757D" startOffset={100} />
+                                    <XAxis dataKey="name" stroke="#6C757D" startOffset={100} tick={{ fontSize: 12 }} />
                                     <YAxis
                                         stroke="#6C757D"
+                                        tick={{ fontSize: 12 }}
                                         tickFormatter={value => {
                                             if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
                                             if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
                                             return `$${value}`;
                                         }}
+                                        width={40}
                                     />
                                     <RechartsTooltip
                                         formatter={(value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)}
-                                        contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}
+                                        contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', fontSize: '0.85rem' }}
                                     />
-                                    <RechartsLegend verticalAlign="top" height={36} />
+                                    <RechartsLegend verticalAlign="top" height={36} iconSize={10} wrapperStyle={{ fontSize: '0.85rem' }} />
 
                                     <Line
                                         type="monotone"
                                         dataKey="MostProbable"
                                         name="Most Probable"
                                         stroke="#B6955E"
-                                        strokeWidth={3}
-                                        dot={{ r: 4, fill: '#B6955E', strokeWidth: 2, stroke: '#fff' }}
-                                        activeDot={{ r: 6 }}
-                                        animationDuration={2500}
+                                        strokeWidth={2.5}
+                                        dot={{ r: 3, fill: '#B6955E', strokeWidth: 1.5, stroke: '#fff' }}
+                                        activeDot={{ r: 5 }}
+                                        animationDuration={1500} // Speed up animation
                                         animationEasing="ease-in-out"
                                     />
                                     {isRiskMode && (
@@ -610,24 +601,22 @@ const ProjectionPage = () => {
                                                 dataKey="BestCase"
                                                 name="Best Case"
                                                 stroke="#198754"
-                                                strokeWidth={2}
-                                                strokeDasharray="5 5"
+                                                strokeWidth={1.5}
+                                                strokeDasharray="4 4"
                                                 dot={false}
-                                                activeDot={{ r: 5 }}
-                                                animationDuration={2500}
-                                                animationEasing="ease-in-out"
+                                                activeDot={{ r: 4 }}
+                                                animationDuration={1500}
                                             />
                                             <Line
                                                 type="monotone"
                                                 dataKey="WorstCase"
                                                 name="Worst Case"
                                                 stroke="#DC3545"
-                                                strokeWidth={2}
-                                                strokeDasharray="5 5"
+                                                strokeWidth={1.5}
+                                                strokeDasharray="4 4"
                                                 dot={false}
-                                                activeDot={{ r: 5 }}
-                                                animationDuration={2500}
-                                                animationEasing="ease-in-out"
+                                                activeDot={{ r: 4 }}
+                                                animationDuration={1500}
                                             />
                                         </>
                                     )}

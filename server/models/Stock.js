@@ -12,7 +12,11 @@ const stockSchema = new mongoose.Schema({
     quantity: { type: Number, required: true },
     purchasePrice: { type: Number, required: true },
     currentPrice: { type: Number, default: 0 },
-    previousClose: { type: Number, default: 0 }
+    previousClose: { type: Number, default: 0 },
+    peRatio: { type: Number, default: 0 },
+    eps: { type: Number, default: 0 },
+    roe: { type: Number, default: 0 },
+    debtToEquity: { type: Number, default: 0 }
 }, { timestamps: true });
 
 const Stock = mongoose.model('Stock', stockSchema);
