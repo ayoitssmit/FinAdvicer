@@ -364,7 +364,8 @@ const DashboardStyles = () => (
 
     .modal-form input[type="text"],
     .modal-form input[type="number"],
-    .modal-form input[type="date"] {
+    .modal-form input[type="date"],
+    .modal-form select {
       width: 100%;
       padding: 10px;
       background-color: var(--background-dark);
@@ -372,6 +373,12 @@ const DashboardStyles = () => (
       border-radius: 6px;
       color: var(--text-primary);
       font-size: 1rem;
+    }
+
+    /* Fix dropdown option colors */
+    .modal-form select option {
+      background-color: var(--background-dark);
+      color: var(--text-primary);
     }
 
     .modal-actions {
@@ -661,8 +668,23 @@ const ItemModal = ({ config, onClose, onSave, categories }) => {
             case 'insurance':
                 return <>
                     <div className="input-group"><label>Insurance Name</label><input type="text" name="name" value={formData.name} onChange={handleChange} /></div>
+                    <div className="input-group"><label>Type</label>
+                        <select name="category" value={formData.category || 'General'} onChange={(e) => {
+                            const newCat = e.target.value;
+                            let newInflation = 0;
+                            // US Healthcare Inflation assumption (~7%)
+                            if (newCat === 'Health') newInflation = 7;
+                            setFormData(prev => ({ ...prev, category: newCat, inflationRate: newInflation }));
+                        }}>
+                            <option value="General">General / Other</option>
+                            <option value="Health">Health Insurance</option>
+                            <option value="Term">Term Life Insurance</option>
+                            <option value="ULIP">Investment / ULIP</option>
+                        </select>
+                    </div>
                     <div className="input-group"><label>Yearly Premium ($)</label><input type="number" name="cost" value={formData.cost} onChange={handleChange} /></div>
-                    <div className="input-group"><label>Start Year</label><input type="number" name="startYear" value={formData.startYear} onChange={handleChange} /></div>
+                    <div className="input-group"><label>Policy Start Year</label><input type="number" name="startYear" value={formData.startYear} onChange={handleChange} /></div>
+                    <div className="input-group"><label>Premium Paying Term (Years)</label><input type="number" name="policyTerm" value={formData.policyTerm} onChange={handleChange} /></div>
                 </>;
             default:
                 return <>
@@ -758,7 +780,7 @@ const categories = {
         { id: 'postRetirement', label: 'Post-retirement Living' },
     ],
     lifeEvents: [
-        { id: 'marriage', label: 'Marriage' }, { id: 'education', label: 'Education' },
+        { id: 'marriage', label: 'Social Gatherings' }, { id: 'education', label: 'Education' },
         { id: 'bills', label: 'Household Bills' }, { id: 'loans', label: 'Loans' },
         { id: 'personalExpense', label: 'Personal Expense' }, { id: 'insurance', label: 'Insurance' },
     ],

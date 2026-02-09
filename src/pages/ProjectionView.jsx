@@ -1,15 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useLocation, Link } from 'react-router-dom';
-import { Pie, Line } from 'react-chartjs-2';
+import { Pie } from 'react-chartjs-2';
 import {
-    Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale,
-    LinearScale, PointElement, LineElement, Title, Filler
+    Chart as ChartJS, ArcElement, Tooltip, Legend, Title
 } from 'chart.js';
+import {
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend as RechartsLegend, ResponsiveContainer, Area, ComposedChart
+} from 'recharts';
 
-ChartJS.register(
-    ArcElement, Tooltip, Legend, CategoryScale, LinearScale,
-    PointElement, LineElement, Title, Filler
-);
+ChartJS.register(ArcElement, Tooltip, Legend, Title);
 
 // --- Calculation Helpers ---
 const calculatePropertyValue = (item, yearsOffset = 0) => {
@@ -43,12 +42,7 @@ const calculateRemainingLoan = (item, yearsOffset = 0) => {
     if (yearsPassed <= 0) return item.cost;
     return item.cost * Math.pow(1 - 0.05, yearsPassed);
 };
-const calculateInsuranceTotal = (item, yearsOffset = 0) => {
-    if (!item.startYear || !item.cost) return 0;
-    const yearsPassed = (new Date().getFullYear() + yearsOffset) - item.startYear;
-    if (yearsPassed < 0) return 0;
-    return item.cost * (yearsPassed + 1);
-};
+
 
 
 const ProjectionPage = () => {
@@ -190,17 +184,54 @@ const ProjectionPage = () => {
             financialData.postRetirement.forEach(p => investments += p.amount * Math.pow(1.06, period)); // Conservative 6%
 
             // Expenses
-            const marriageExpenses = financialData.marriage.reduce((acc, item) => acc + item.cost, 0);
+            // 1. Social Gatherings (formerly Marriage) - Only if year matches
+            let marriageExpenses = 0;
+            const projectedYear = new Date().getFullYear() + period;
+
+            financialData.marriage.forEach(item => {
+                if (item.startYear === projectedYear) {
+                    // Apply 8% inflation from now until event
+                    marriageExpenses += item.cost * Math.pow(1.08, period);
+                }
+            });
 
             let nonMarriageExpenses = 0;
-            financialData.education.forEach(i => nonMarriageExpenses += i.cost);
-            financialData.bills.forEach(i => nonMarriageExpenses += i.cost);
-            financialData.personalExpense.forEach(i => nonMarriageExpenses += i.cost);
 
-            let projectedNonMarriageExpenses = nonMarriageExpenses * Math.pow(1.07, period);
+            // 2. Education - Apply 10% Inflation
+            financialData.education.forEach(i => {
+                nonMarriageExpenses += i.cost * Math.pow(1.10, period);
+            });
+
+            // 3. Bills & Personal - Apply Standard 7% Inflation
+            financialData.bills.forEach(i => {
+                nonMarriageExpenses += i.cost * Math.pow(1.07, period);
+            });
+            financialData.personalExpense.forEach(i => {
+                nonMarriageExpenses += i.cost * Math.pow(1.07, period);
+            });
+
+            // Note: We don't apply another layer of inflation here since we applied it individually above
+            let projectedNonMarriageExpenses = nonMarriageExpenses;
 
             const projectedLoans = financialData.loans.reduce((acc, l) => acc + calculateRemainingLoan(l, period), 0);
-            const projectedInsurance = financialData.insurance.reduce((acc, i) => acc + calculateInsuranceTotal(i, period), 0);
+
+            // 4. Insurance - Smart Logic (Term Limits + Inflation)
+            const calculateSmartInsurance = (item, yearsOffset) => {
+                const currentYear = new Date().getFullYear() + yearsOffset;
+                const startYear = item.startYear || new Date().getFullYear(); // Default to now if missing
+                const term = item.policyTerm || 99; // Default to life if missing
+
+                // Check if policy is active
+                if (currentYear < startYear || currentYear > (startYear + term)) {
+                    return 0;
+                }
+
+                // Apply Inflation (e.g. Health Insurance increases)
+                const inflation = item.inflationRate || 0;
+                return item.cost * Math.pow(1 + inflation / 100, yearsOffset);
+            };
+
+            const projectedInsurance = financialData.insurance.reduce((acc, i) => acc + calculateSmartInsurance(i, period), 0);
 
             expenses = marriageExpenses + projectedNonMarriageExpenses + projectedLoans + projectedInsurance;
 
@@ -221,20 +252,49 @@ const ProjectionPage = () => {
 
         const generateLineData = (period) => {
             const labels = Array.from({ length: period + 1 }, (_, i) => `Year ${i}`);
-            const data = labels.map((_, i) => {
+
+            // Format for Recharts: Array of objects
+            const data = labels.map((label, i) => {
                 const totals = calculateTotals(i);
-                return totals.investments - totals.expenses; // Net Worth
+
+                // For Year 0, all scenarios are the same (Current Value)
+                if (i === 0) {
+                    const val = totals.investments - totals.expenses;
+                    return { name: `Year ${i}`, MostProbable: val, BestCase: val, WorstCase: val };
+                } else {
+                    // For Year 1+, calculate variances
+                    let varianceBest = 0;
+                    let varianceWorst = 0;
+
+                    if (mlProjections) {
+                        mlProjections.forEach(item => {
+                            const p = item[i.toString()];
+                            if (p) {
+                                varianceBest += (p.bestCase - p.expectedValue);
+                                varianceWorst += (p.worstCase - p.expectedValue);
+                            }
+                        });
+                    }
+
+                    const baseNetWorth = totals.investments - totals.expenses;
+                    return {
+                        name: `Year ${i}`,
+                        MostProbable: baseNetWorth,
+                        BestCase: baseNetWorth + varianceBest,
+                        WorstCase: baseNetWorth + varianceWorst
+                    };
+                }
             });
-            return { labels, datasets: [{ label: 'Projected Net Worth', data, fill: true }] };
+            return data;
         };
 
         return {
             current, threeYear, fiveYear, tenYear,
             pie: pieData[activePeriod],
-            line: activePeriod > 0 ? generateLineData(activePeriod) : null,
+            lineData: activePeriod > 0 ? generateLineData(activePeriod) : null,
         };
 
-    }, [financialData, activePeriod]);
+    }, [financialData, activePeriod, mlProjections]);
 
     if (!financialData) {
         return (
@@ -251,7 +311,32 @@ const ProjectionPage = () => {
     };
     const lineOptions = {
         responsive: true,
-        plugins: { legend: { display: false }, title: { display: true, text: 'Projected Net Worth Growth' } },
+        animation: {
+            duration: 2000,
+            easing: 'easeOutQuart',
+        },
+        interaction: {
+            mode: 'index',
+            intersect: false,
+        },
+        plugins: {
+            legend: { display: true, position: 'bottom' },
+            title: { display: true, text: 'Projected Net Worth Growth' },
+            tooltip: {
+                callbacks: {
+                    label: function (context) {
+                        let label = context.dataset.label || '';
+                        if (label) {
+                            label += ': ';
+                        }
+                        if (context.parsed.y !== null) {
+                            label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(context.parsed.y);
+                        }
+                        return label;
+                    }
+                }
+            }
+        },
         scales: {
             y: {
                 ticks: {
@@ -423,16 +508,7 @@ const ProjectionPage = () => {
                 </label>
             </div>
 
-            {/* --- Info Banner --- */}
-            <div style={{ textAlign: 'center', marginBottom: '1rem', color: '#666' }}>
-                {isLoading ? (
-                    <span>⏳ Calculating AI Projections...</span>
-                ) : (
-                    <span>
-                        <span style={{ color: '#198754', fontWeight: 'bold' }}>✓ AI Projections Active</span> (Based on 10,000 Monte Carlo Simulations)
-                    </span>
-                )}
-            </div>
+            {/* --- Info Banner (Removed as per user request) --- */}
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem', alignItems: 'stretch' }}>
                 <div className="item-list-container" style={{ padding: '1.5rem', minHeight: '400px', display: 'flex', flexDirection: 'column' }}>
@@ -441,35 +517,13 @@ const ProjectionPage = () => {
                     </h3>
                     <div style={{ fontSize: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <p>
-                            Total Investment Value:
+                            Most Probable Value:
                             <strong className="text-profit"> ${projection[activePeriod === 3 ? 'threeYear' : activePeriod === 5 ? 'fiveYear' : activePeriod === 10 ? 'tenYear' : 'current'].investments.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
                         </p>
-                        <p>
-                            Total Life Event Expenses:
-                            <strong className="text-loss"> ${projection[activePeriod === 3 ? 'threeYear' : activePeriod === 5 ? 'fiveYear' : activePeriod === 10 ? 'tenYear' : 'current'].expenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
-                        </p>
 
-                        {/* Risk Stats (Visible for all future projections: 3, 5, 10 years) */}
+                        {/* Risk Stats (Best/Worst) - Now consistent list items without box */}
                         {isRiskMode && activePeriod >= 3 && riskTotals && (
-                            <div style={{ marginTop: '1rem', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '8px', border: '1px solid #DEE2E6' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                    <p style={{ fontSize: '0.9rem', color: '#666', margin: 0 }}>AI Projected Range (Stocks Only):</p>
-                                    {mlProjections.some(item => item.isSimulated) && (
-                                        <span style={{
-                                            backgroundColor: '#ffec00',
-                                            color: '#664d03',
-                                            fontSize: '0.75rem',
-                                            padding: '2px 6px',
-                                            borderRadius: '4px',
-                                            fontWeight: 'bold',
-                                            border: '1px solid #ffc107',
-                                            display: 'flex', alignItems: 'center', gap: '4px'
-                                        }}>
-                                            ⚠️ Simulated
-                                        </span>
-                                    )}
-                                </div>
-                                {/* Simple Logic to sum up Best/Worst cases for active Period */}
+                            <>
                                 {(() => {
                                     let totalBest = 0;
                                     let totalWorst = 0;
@@ -480,24 +534,30 @@ const ProjectionPage = () => {
                                             totalWorst += d.worstCase;
                                         }
                                     });
-                                    // Add non-stock investments (simulated here for display)
-                                    // Hacky: We need 'nonStockInvestments' from the main calc. 
-                                    // Easier: Just show the Stock Range itself? Or Total Portfolio Range?
-                                    // Implementation Plan said "Projected Range". 
-                                    // Let's just show Stock Variance to be safe and accurate.
+                                    // Add non-stock investments
+                                    // We need to fetch the non-stock component from the riskTotals calculation in useMemo 
+                                    // But riskTotals returns the FINAL sum (non-stock + stock best/worst)
+                                    // So we can just use riskTotals.best and riskTotals.worst directly!
+
                                     return (
                                         <>
-                                            <p style={{ fontSize: '0.95rem', fontWeight: 600, color: '#198754' }}>
-                                                Best Case: ${(totalBest).toLocaleString(undefined, { maximumFractionDigits: 0 })} (Stocks)
+                                            <p>
+                                                Best Case: <strong style={{ color: '#198754' }}>${riskTotals.best.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
                                             </p>
-                                            <p style={{ fontSize: '0.95rem', fontWeight: 600, color: '#DC3545' }}>
-                                                Worst Case: ${(totalWorst).toLocaleString(undefined, { maximumFractionDigits: 0 })} (Stocks)
+                                            <p>
+                                                Worst Case: <strong style={{ color: '#DC3545' }}>${riskTotals.worst.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
                                             </p>
                                         </>
                                     );
                                 })()}
-                            </div>
+                            </>
                         )}
+
+                        <p>
+                            Total Life Event Expenses:
+                            <strong className="text-loss"> ${projection[activePeriod === 3 ? 'threeYear' : activePeriod === 5 ? 'fiveYear' : activePeriod === 10 ? 'tenYear' : 'current'].expenses.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
+                        </p>
+
                     </div>
                     {/* Flex grow pushes chart to center/bottom space */}
                     <div style={{ flex: 1, minHeight: '300px', width: '100%', marginTop: '2rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -505,13 +565,74 @@ const ProjectionPage = () => {
                     </div>
                 </div>
 
-                {activePeriod > 0 && projection.line && (
+                {activePeriod > 0 && projection.lineData && (
                     <div className="item-list-container" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
                         <h3 style={{ marginBottom: '1rem' }}>
                             Investment Growth Over {activePeriod} Years
                         </h3>
-                        <div style={{ flex: 1, minHeight: '350px', position: 'relative' }}>
-                            <Line data={{ ...projection.line, datasets: [{ ...projection.line.datasets[0], borderColor: '#B6955E', backgroundColor: 'rgba(182, 149, 94, 0.2)' }] }} options={{ ...lineOptions, maintainAspectRatio: false }} />
+                        <div style={{ flex: 1, minHeight: '600px', position: 'relative' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart
+                                    data={projection.lineData}
+                                    margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eee" />
+                                    <XAxis dataKey="name" stroke="#6C757D" startOffset={100} />
+                                    <YAxis
+                                        stroke="#6C757D"
+                                        tickFormatter={value => {
+                                            if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+                                            if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`;
+                                            return `$${value}`;
+                                        }}
+                                    />
+                                    <RechartsTooltip
+                                        formatter={(value) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(value)}
+                                        contentStyle={{ backgroundColor: '#fff', borderRadius: '8px', border: '1px solid #ddd', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}
+                                    />
+                                    <RechartsLegend verticalAlign="top" height={36} />
+
+                                    <Line
+                                        type="monotone"
+                                        dataKey="MostProbable"
+                                        name="Most Probable"
+                                        stroke="#B6955E"
+                                        strokeWidth={3}
+                                        dot={{ r: 4, fill: '#B6955E', strokeWidth: 2, stroke: '#fff' }}
+                                        activeDot={{ r: 6 }}
+                                        animationDuration={2500}
+                                        animationEasing="ease-in-out"
+                                    />
+                                    {isRiskMode && (
+                                        <>
+                                            <Line
+                                                type="monotone"
+                                                dataKey="BestCase"
+                                                name="Best Case"
+                                                stroke="#198754"
+                                                strokeWidth={2}
+                                                strokeDasharray="5 5"
+                                                dot={false}
+                                                activeDot={{ r: 5 }}
+                                                animationDuration={2500}
+                                                animationEasing="ease-in-out"
+                                            />
+                                            <Line
+                                                type="monotone"
+                                                dataKey="WorstCase"
+                                                name="Worst Case"
+                                                stroke="#DC3545"
+                                                strokeWidth={2}
+                                                strokeDasharray="5 5"
+                                                dot={false}
+                                                activeDot={{ r: 5 }}
+                                                animationDuration={2500}
+                                                animationEasing="ease-in-out"
+                                            />
+                                        </>
+                                    )}
+                                </LineChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
                 )}

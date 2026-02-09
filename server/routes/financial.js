@@ -240,10 +240,22 @@ router.post('/projection', verifyToken, async (req, res) => {
 
             // 3. Call ML Service directly (History fetched by Python now)
             try {
+                // Fix: Use Current Market Value (if available) as the starting point for projection
+                // This prevents the "Dip" where projection resets to initial cost basis
+                let startValue = 0;
+                if (asset.currentPrice && asset.quantity) {
+                    startValue = asset.currentPrice * asset.quantity;
+                } else if (asset.purchasePrice && asset.quantity) {
+                    startValue = asset.purchasePrice * asset.quantity;
+                } else {
+                    // Fallback for SIPs or assets without clear price/qty
+                    startValue = asset.quantity * asset.purchasePrice || asset.invested || 0;
+                }
+
                 const mlPayload = {
                     assetClass: asset.assetClass,
                     symbol: symbol,
-                    investedAmount: asset.quantity * asset.purchasePrice, // Assuming MFs also have quantity/price or total invested
+                    investedAmount: startValue,
                 };
 
                 // Guardrail: Validate Contract
