@@ -24,7 +24,7 @@ FinAdvicer is a comprehensive full-stack wealth management application designed 
 
 The application follows a Service-Oriented Architecture (SOA) separating the core logic from the computation-heavy data science layer.
 
-*   **Frontend**: React.js (Vite) for a responsive, dark-themed user interface.
+*   **Frontend**: React.js (Vite) for a responsive user interface.
 *   **Backend**: Node.js & Express.js for RESTful API management and secure data persistence.
 *   **Database**: MongoDB (Mongoose ODM) with schemas optimized for time-series financial data.
 *   **ML Service**: Python (FastAPI) microservice handling:
